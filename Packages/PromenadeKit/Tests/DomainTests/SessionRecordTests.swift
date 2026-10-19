@@ -43,6 +43,19 @@ struct SessionRecordTests {
     #expect(session(segments: [segment]).lastActivityDate == .reference.addingTimeInterval(30))
   }
 
+  @Test func hasOpenSegmentReflectsOnlyLastSegment() {
+    let closed = SegmentRecord(
+      index: 0,
+      startDate: .reference,
+      endDate: .reference.addingTimeInterval(10),
+      endReason: .signalGap
+    )
+    let open = SegmentRecord(index: 1, startDate: .reference.addingTimeInterval(20))
+    #expect(!session(segments: []).hasOpenSegment)
+    #expect(!session(segments: [closed]).hasOpenSegment)
+    #expect(session(segments: [closed, open]).hasOpenSegment)
+  }
+
   @Test func lastActivityUsesOnlyLastSegment() {
     let first = SegmentRecord(
       index: 0,

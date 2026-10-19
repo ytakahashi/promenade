@@ -10,10 +10,25 @@ public struct TrackingConfiguration: Sendable, Equatable {
   public var storageMaxHorizontalAccuracy: Double
   /// Thresholds for distance and route drawing.
   public var route: RouteFilter.Configuration
+  /// Maximum gap in seconds before a nonstationary location update starts a new segment.
+  public var signalGapThreshold: TimeInterval
+  /// Maximum gap in seconds for continuing a segment after a background relaunch.
+  public var relaunchSplitThreshold: TimeInterval
+  /// Inactivity in seconds after which an unfinished session is automatically finished.
+  public var autoFinishThreshold: TimeInterval
 
-  public init(storageMaxHorizontalAccuracy: Double, route: RouteFilter.Configuration) {
+  public init(
+    storageMaxHorizontalAccuracy: Double,
+    route: RouteFilter.Configuration,
+    signalGapThreshold: TimeInterval = 60,
+    relaunchSplitThreshold: TimeInterval = 60,
+    autoFinishThreshold: TimeInterval = 6 * 60 * 60
+  ) {
     self.storageMaxHorizontalAccuracy = storageMaxHorizontalAccuracy
     self.route = route
+    self.signalGapThreshold = signalGapThreshold
+    self.relaunchSplitThreshold = relaunchSplitThreshold
+    self.autoFinishThreshold = autoFinishThreshold
   }
 
   public static let `default` = TrackingConfiguration(

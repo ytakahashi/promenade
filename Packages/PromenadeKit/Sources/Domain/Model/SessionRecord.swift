@@ -28,6 +28,12 @@ public struct SessionRecord: Sendable, Equatable {
     self.segments = segments
   }
 
+  /// Whether the last segment is still being recorded.
+  public var hasOpenSegment: Bool {
+    guard let last = segments.last else { return false }
+    return last.endDate == nil
+  }
+
   /// The latest moment the session is known to have been active.
   ///
   /// Used to decide how to recover an unfinished session after the app was terminated.
