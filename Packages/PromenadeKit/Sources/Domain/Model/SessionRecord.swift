@@ -38,8 +38,19 @@ public struct SessionRecord: Sendable, Equatable {
   ///
   /// Used to decide how to recover an unfinished session after the app was terminated.
   public var lastActivityDate: Date {
-    guard let last = segments.last else { return startDate }
-    let candidates = [startDate, last.startDate, last.endDate, last.points.last?.timestamp]
-    return candidates.compactMap(\.self).max() ?? startDate
+    let last = segments.last
+    return Self.lastActivityDate(
+      startDate: startDate, lastSegmentStart: last?.startDate, lastSegmentEnd: last?.endDate,
+      lastPointDate: last?.points.last?.timestamp)
+  }
+
+  /// Computes `lastActivityDate` from its inputs, for callers that hold persisted models rather
+  /// than a fully mapped record. Recovery dates derived from one are validated against the other,
+  /// so both must share this definition.
+  public static func lastActivityDate(
+    startDate: Date, lastSegmentStart: Date?, lastSegmentEnd: Date?, lastPointDate: Date?
+  ) -> Date {
+    [startDate, lastSegmentStart, lastSegmentEnd, lastPointDate].compactMap(\.self).max()
+      ?? startDate
   }
 }

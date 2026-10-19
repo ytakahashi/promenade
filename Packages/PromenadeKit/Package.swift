@@ -25,7 +25,7 @@ let package = Package(
       swiftSettings: [.defaultIsolation(MainActor.self)]
     ),
     .testTarget(name: "DomainTests", dependencies: ["Domain"]),
-    .testTarget(name: "PersistenceTests", dependencies: ["Persistence"]),
+    .testTarget(name: "PersistenceTests", dependencies: ["Persistence", "Domain"]),
     .testTarget(name: "TrackingTests", dependencies: ["Tracking"]),
   ]
 )

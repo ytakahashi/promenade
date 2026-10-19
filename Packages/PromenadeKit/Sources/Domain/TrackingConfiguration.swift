@@ -16,19 +16,23 @@ public struct TrackingConfiguration: Sendable, Equatable {
   public var relaunchSplitThreshold: TimeInterval
   /// Inactivity in seconds after which an unfinished session is automatically finished.
   public var autoFinishThreshold: TimeInterval
+  /// Number of pending points that triggers a durable save.
+  public var saveBatchSize: Int
 
   public init(
     storageMaxHorizontalAccuracy: Double,
     route: RouteFilter.Configuration,
     signalGapThreshold: TimeInterval = 60,
     relaunchSplitThreshold: TimeInterval = 60,
-    autoFinishThreshold: TimeInterval = 6 * 60 * 60
+    autoFinishThreshold: TimeInterval = 6 * 60 * 60,
+    saveBatchSize: Int = 10
   ) {
     self.storageMaxHorizontalAccuracy = storageMaxHorizontalAccuracy
     self.route = route
     self.signalGapThreshold = signalGapThreshold
     self.relaunchSplitThreshold = relaunchSplitThreshold
     self.autoFinishThreshold = autoFinishThreshold
+    self.saveBatchSize = saveBatchSize
   }
 
   public static let `default` = TrackingConfiguration(
