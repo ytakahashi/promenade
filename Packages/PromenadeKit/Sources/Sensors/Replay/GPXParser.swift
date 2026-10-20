@@ -2,13 +2,24 @@
   import Domain
   import Foundation
 
-  public enum GPXError: Error, Sendable, Equatable {
+  public enum GPXError: Error, Sendable, Equatable, LocalizedError {
     case malformedXML
     case invalidPoint
     case nonIncreasingTimestamps
     case noTrackPoints
     case invalidSpeedMultiplier
     case invalidReplayTimeline
+
+    public var errorDescription: String? {
+      switch self {
+      case .malformedXML: "The replay file is not a valid GPX document."
+      case .invalidPoint: "A replay point contains an invalid coordinate, timestamp, or elevation."
+      case .nonIncreasingTimestamps: "Replay point timestamps must be strictly increasing."
+      case .noTrackPoints: "The replay file contains no track points."
+      case .invalidSpeedMultiplier: "Replay speed must be a positive, finite number."
+      case .invalidReplayTimeline: "The replay speed produces an unsupported playback timeline."
+      }
+    }
   }
 
   /// Parses GPX track points only; file access and playback are separate responsibilities.

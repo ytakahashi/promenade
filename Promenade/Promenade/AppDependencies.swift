@@ -1,0 +1,34 @@
+import Domain
+import Foundation
+import Persistence
+import SwiftData
+import Tracking
+
+struct AppDependencies {
+  let container: ModelContainer
+  let store: SwiftDataTrackingStore
+  let engine: TrackingEngine
+
+  init(container: ModelContainer, sensors: AppSensors, configuration: TrackingConfiguration) {
+    self.container = container
+    store = SwiftDataTrackingStore(container: container, configuration: configuration)
+    engine = TrackingEngine(
+      store: store, provider: sensors.provider, locationSession: sensors.session,
+      configuration: configuration)
+  }
+
+  func readSession(id: UUID) throws -> SessionRecord? {
+    try Self.reader(container: container).session(id: id)
+  }
+
+  static func readUnfinishedSessions(container: ModelContainer) throws -> [SessionRecord] {
+    try reader(container: container).unfinishedSessions()
+  }
+
+  private static func reader(container: ModelContainer) -> SessionReader {
+    // A fresh context sees saves from the recording actor instead of cached launch models.
+    let context = ModelContext(container)
+    context.autosaveEnabled = false
+    return SessionReader(context: context)
+  }
+}

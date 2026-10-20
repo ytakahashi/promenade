@@ -1,36 +1,55 @@
 import XCTest
 
 final class PromenadeUITests: XCTestCase {
-
   override func setUpWithError() throws {
-    // Put setup code here. This method is called before the invocation of each test method in the class.
-
-    // In UI tests it is usually best to stop immediately when a failure occurs.
     continueAfterFailure = false
-
-    // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
-  }
-
-  override func tearDownWithError() throws {
-    // Put teardown code here. This method is called after the invocation of each test method in the class.
   }
 
   @MainActor
-  func testExample() throws {
-    // UI tests must launch the application that they test.
+  func testTabsRemainAvailableAfterLaunch() {
     let app = XCUIApplication()
     app.launch()
-
-    // Use XCTAssert and related functions to verify your tests produce the correct results.
-    // XCUIAutomation Documentation
-    // https://developer.apple.com/documentation/xcuiautomation
+    assertTabs(app)
+    app.tabBars.buttons["History"].tap()
+    app.tabBars.buttons["Statistics"].tap()
+    app.tabBars.buttons["Tracking"].tap()
+    XCTAssertTrue(app.tabBars.buttons["Tracking"].isSelected)
   }
 
   @MainActor
-  func testLaunchPerformance() throws {
-    // This measures how long it takes to launch your application.
-    measure(metrics: [XCTApplicationLaunchMetric()]) {
-      XCUIApplication().launch()
-    }
+  func testInvalidReplayOptionsDoNotOpenTracking() {
+    let app = XCUIApplication()
+    app.launchArguments = ["-ReplaySpeed", "2"]
+    app.launch()
+    XCTAssertTrue(app.staticTexts["Invalid Replay Options"].waitForExistence(timeout: 10))
+    XCTAssertTrue(app.buttons["Retry"].exists)
+    XCTAssertFalse(app.tabBars.firstMatch.exists)
+  }
+
+  @MainActor
+  func testReplayFileCanBeRepairedAndRetried() throws {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent(
+      UUID().uuidString + ".gpx")
+    defer { try? FileManager.default.removeItem(at: url) }
+    try Data("invalid XML".utf8).write(to: url)
+    let app = XCUIApplication()
+    app.launchArguments = ["-ReplayGPX", url.path]
+    app.launch()
+    XCTAssertTrue(app.staticTexts["Invalid Replay Data"].waitForExistence(timeout: 10))
+    try Data(
+      """
+      <gpx><trk><trkseg><trkpt lat="35" lon="139">
+      <time>2026-10-20T00:00:00Z</time></trkpt></trkseg></trk></gpx>
+      """.utf8
+    ).write(to: url)
+    app.buttons["Retry"].tap()
+    assertTabs(app)
+  }
+
+  @MainActor
+  private func assertTabs(_ app: XCUIApplication) {
+    XCTAssertTrue(app.tabBars.buttons["Tracking"].waitForExistence(timeout: 10))
+    XCTAssertTrue(app.tabBars.buttons["History"].exists)
+    XCTAssertTrue(app.tabBars.buttons["Statistics"].exists)
   }
 }

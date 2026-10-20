@@ -20,6 +20,11 @@ public final class LocationAuthorizationMonitor: NSObject, @MainActor CLLocation
   }
 
   public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+    refreshAuthorization()
+  }
+
+  /// Rechecks per-app authorization on foreground entry without requesting access.
+  public func refreshAuthorization() {
     authorizationStatus = manager.authorizationStatus
     accuracyAuthorization = manager.accuracyAuthorization
   }

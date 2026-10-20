@@ -1,7 +1,24 @@
+import Domain
+import Foundation
 import SwiftUI
+import Tracking
 
 public struct RootView: View {
-  public init() {}
+  let engine: TrackingEngine
+  let configuration: TrackingConfiguration
+  let locationAccess: LocationAccessState
+  let readSession: @MainActor (UUID) throws -> SessionRecord?
+
+  public init(
+    engine: TrackingEngine, configuration: TrackingConfiguration,
+    locationAccess: LocationAccessState,
+    readSession: @escaping @MainActor (UUID) throws -> SessionRecord?
+  ) {
+    self.engine = engine
+    self.configuration = configuration
+    self.locationAccess = locationAccess
+    self.readSession = readSession
+  }
 
   public var body: some View {
     TabView {
@@ -34,8 +51,4 @@ public struct RootView: View {
       }
     }
   }
-}
-
-#Preview {
-  RootView()
 }
