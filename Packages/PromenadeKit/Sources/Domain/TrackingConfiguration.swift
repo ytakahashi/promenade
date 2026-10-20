@@ -18,6 +18,9 @@ public struct TrackingConfiguration: Sendable, Equatable {
   public var autoFinishThreshold: TimeInterval
   /// Number of pending points that triggers a durable save.
   public var saveBatchSize: Int
+  /// Seconds to wait for a definitive access result when resuming after a background relaunch
+  /// before subscribing to location updates anyway.
+  public var recoveryActivationTimeout: TimeInterval
 
   public init(
     storageMaxHorizontalAccuracy: Double,
@@ -25,7 +28,8 @@ public struct TrackingConfiguration: Sendable, Equatable {
     signalGapThreshold: TimeInterval = 60,
     relaunchSplitThreshold: TimeInterval = 60,
     autoFinishThreshold: TimeInterval = 6 * 60 * 60,
-    saveBatchSize: Int = 10
+    saveBatchSize: Int = 10,
+    recoveryActivationTimeout: TimeInterval = 10
   ) {
     self.storageMaxHorizontalAccuracy = storageMaxHorizontalAccuracy
     self.route = route
@@ -33,6 +37,7 @@ public struct TrackingConfiguration: Sendable, Equatable {
     self.relaunchSplitThreshold = relaunchSplitThreshold
     self.autoFinishThreshold = autoFinishThreshold
     self.saveBatchSize = saveBatchSize
+    self.recoveryActivationTimeout = recoveryActivationTimeout
   }
 
   public static let `default` = TrackingConfiguration(

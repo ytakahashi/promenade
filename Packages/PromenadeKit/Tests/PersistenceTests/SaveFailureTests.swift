@@ -3,6 +3,8 @@ import Testing
 
 @testable import Persistence
 
+// Serialize container construction across suites; concurrent Core Data model setup can crash.
+@MainActor
 struct SaveFailureTests {
   enum Transition: CaseIterable, Sendable {
     case pause, resume, split, interrupt, open, finish
@@ -90,9 +92,12 @@ struct SaveFailureTests {
     try await store.createSession(id: id, startDate: Fixtures.start, timeZone: Fixtures.timeZone)
     for second in 1...9 { try await store.append(Fixtures.point(Double(second)), sessionID: id) }
     saves.failNext()
-    await #expect(throws: SaveController.Failure.injected) {
-      try await store.append(Fixtures.point(10), sessionID: id)
+    let result = try await store.append(Fixtures.point(10), sessionID: id)
+    guard case .pendingSaveFailure(let error) = result else {
+      Issue.record("Expected an accepted point with a pending save failure")
+      return
     }
+    #expect(error as? SaveController.Failure == .injected)
     #expect(try Fixtures.storedPointCount(in: container) == 0)
     // The next attempt waits for another batch instead of retrying on every append.
     for second in 11...19 { try await store.append(Fixtures.point(Double(second)), sessionID: id) }
@@ -118,9 +123,10 @@ struct SaveFailureTests {
     saves.setFailsPersistently(true)
     var failures = 0
     for second in 1...35 {
-      do {
-        try await store.append(Fixtures.point(Double(second)), sessionID: id)
-      } catch SaveController.Failure.injected {
+      if case .pendingSaveFailure(let error) = try await store.append(
+        Fixtures.point(Double(second)), sessionID: id)
+      {
+        #expect(error as? SaveController.Failure == .injected)
         failures += 1
       }
     }
@@ -143,9 +149,12 @@ struct SaveFailureTests {
     try await store.createSession(id: id, startDate: Fixtures.start, timeZone: Fixtures.timeZone)
     for second in 1...9 { try await store.append(Fixtures.point(Double(second)), sessionID: id) }
     saves.failNext()
-    await #expect(throws: SaveController.Failure.injected) {
-      try await store.append(Fixtures.point(10), sessionID: id)
+    let result = try await store.append(Fixtures.point(10), sessionID: id)
+    guard case .pendingSaveFailure(let error) = result else {
+      Issue.record("Expected an accepted point with a pending save failure")
+      return
     }
+    #expect(error as? SaveController.Failure == .injected)
     // The rollback of the failed pause also discards the unsaved points still in the context.
     saves.failNext()
     await #expect(throws: SaveController.Failure.injected) {
@@ -155,6 +164,32 @@ struct SaveFailureTests {
     let record = try Fixtures.record(id, in: container)
     #expect(record.state == .recording)
     #expect(record.segments[0].points == (1...10).map { Fixtures.point(Double($0)) })
+  }
+
+  @Test func pauseAfterAccessLossIsAtomicAndPreservesInterruptionTiming() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let saves = SaveController()
+    let store = SwiftDataTrackingStore(container: container, save: saves.save)
+    let id = UUID()
+    try await store.createSession(id: id, startDate: Fixtures.start, timeZone: Fixtures.timeZone)
+    try await store.append(Fixtures.point(1), sessionID: id)
+    try await store.interruptSegment(sessionID: id, at: Fixtures.date(1))
+    let before = try await store.loadSession(id: id)
+    saves.failNext()
+    await #expect(throws: SaveController.Failure.injected) {
+      try await store.pause(sessionID: id, at: Fixtures.date(10))
+    }
+    try await store.flush()
+    #expect(try await store.loadSession(id: id) == before)
+    #expect(try Fixtures.record(id, in: container) == before)
+    try await store.pause(sessionID: id, at: Fixtures.date(10))
+    let record = try Fixtures.record(id, in: container)
+    #expect(record.state == .paused)
+    #expect(record.segments.count == 2)
+    #expect(record.segments[0].endReason == .interrupted)
+    #expect(record.segments[1].startDate == Fixtures.date(10))
+    #expect(record.segments[1].endDate == Fixtures.date(10))
+    #expect(record.segments[1].endReason == .paused)
   }
 
   @Test func repeatedFlushFailuresKeepPointsForRetry() async throws {

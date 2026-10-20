@@ -4,6 +4,8 @@ import Testing
 
 @testable import Persistence
 
+// Serialize container construction across suites; concurrent Core Data model setup can crash.
+@MainActor
 struct FileStoreTests {
   @Test func reopeningContainerPreservesSessionAndAllowsRecordingToContinue() async throws {
     let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)

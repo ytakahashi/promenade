@@ -49,7 +49,8 @@ public actor SwiftDataTrackingStore: TrackingStore, ModelActor {
     try commitTransition()
   }
 
-  public func append(_ point: TrackPoint, sessionID: UUID) throws {
+  @discardableResult
+  public func append(_ point: TrackPoint, sessionID: UUID) throws -> PointAppendResult {
     try prepare()
     let (session, current) = try locate(sessionID)
     try requireState(session, .recording)
@@ -61,16 +62,28 @@ public actor SwiftDataTrackingStore: TrackingStore, ModelActor {
     pendingPoints.append(PendingPoint(segmentID: segment.id, point: point))
     cursor?.lastPointDate = point.timestamp
     cursor?.lastActivity = max(current.lastActivity, point.timestamp)
-    if pendingPoints.count >= nextPointSaveThreshold { try commitPoints() }
+    guard pendingPoints.count >= nextPointSaveThreshold else { return .accepted }
+    do {
+      try commitPoints()
+      return .saved
+    } catch {
+      return .pendingSaveFailure(error)
+    }
   }
 
   public func pause(sessionID: UUID, at date: Date) throws {
     try prepare()
     let (session, current) = try locate(sessionID)
     try requireState(session, .recording)
-    let segment = try openSegment(for: current)
     try validate(date, after: current.lastActivity)
-    close(segment, at: date, reason: .paused)
+    if current.openSegmentID == nil {
+      // Access loss closes the recording segment. An empty paused segment preserves the preceding
+      // interruption and starts rest time at the user's tap, in the same atomic save as the pause.
+      let segment = addSegment(to: session, index: current.nextIndex, at: date)
+      close(segment, at: date, reason: .paused)
+    } else {
+      close(try openSegment(for: current), at: date, reason: .paused)
+    }
     session.stateRaw = SessionState.paused.rawValue
     cursor = nil
     // Segment and session state must become durable together, including any pending points.
@@ -222,10 +235,12 @@ public actor SwiftDataTrackingStore: TrackingStore, ModelActor {
     self.cursor = nil
   }
 
-  private func addSegment(to session: WalkingSession, index: Int, at date: Date) {
+  @discardableResult
+  private func addSegment(to session: WalkingSession, index: Int, at date: Date) -> Segment {
     let segment = Segment(index: index, startDate: date)
     modelContext.insert(segment)
     session.segments.append(segment)
+    return segment
   }
 
   private func close(_ segment: Segment, at date: Date, reason: SegmentEndReason) {

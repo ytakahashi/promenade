@@ -5,6 +5,8 @@ import Testing
 
 @testable import Persistence
 
+// Serialize container construction across suites; concurrent Core Data model setup can crash.
+@MainActor
 struct TrackingStoreTests {
   @Test func creationIsImmediatelyVisibleToAnotherContext() async throws {
     let container = try ModelContainerFactory.make(inMemory: true)
@@ -47,9 +49,17 @@ struct TrackingStoreTests {
     let store = SwiftDataTrackingStore(container: container, configuration: configuration)
     let id = UUID()
     try await store.createSession(id: id, startDate: Fixtures.start, timeZone: Fixtures.timeZone)
-    try await store.append(Fixtures.point(1), sessionID: id)
+    let first = try await store.append(Fixtures.point(1), sessionID: id)
+    guard case .accepted = first else {
+      Issue.record("Expected a pending point without a save attempt")
+      return
+    }
     #expect(try Fixtures.storedPointCount(in: container) == 0)
-    try await store.append(Fixtures.point(2), sessionID: id)
+    let second = try await store.append(Fixtures.point(2), sessionID: id)
+    guard case .saved = second else {
+      Issue.record("Expected the batch to be saved")
+      return
+    }
     #expect(try Fixtures.storedPointCount(in: container) == 2)
   }
 
@@ -199,7 +209,7 @@ struct TrackingStoreTests {
     }
     try await store.interruptSegment(sessionID: id, at: Fixtures.date(10))
     await #expect(throws: PersistenceError.noOpenSegment) {
-      try await store.pause(sessionID: id, at: Fixtures.date(20))
+      try await store.interruptSegment(sessionID: id, at: Fixtures.date(20))
     }
     await #expect(throws: PersistenceError.noOpenSegment) {
       try await store.append(Fixtures.point(20), sessionID: id)
@@ -210,6 +220,9 @@ struct TrackingStoreTests {
     }
     await #expect(throws: PersistenceError.invalidState) {
       try await store.finish(sessionID: id, at: Fixtures.date(30))
+    }
+    await #expect(throws: PersistenceError.invalidState) {
+      try await store.pause(sessionID: id, at: Fixtures.date(30))
     }
   }
 
