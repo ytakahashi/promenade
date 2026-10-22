@@ -11,13 +11,18 @@ protocol TrackingOperations: AnyObject {
   var startFailure: TrackingFailure? { get }
   var operationFailure: TrackingFailure? { get }
   var isBusy: Bool { get }
+  var notice: TrackingNotice? { get }
   func start() async
   func requestPause(at date: Date) -> Bool
   func requestFinish(at date: Date) -> Bool
   func confirmPendingTransition() async
   func cancelPendingTransition()
   func resume(at date: Date) async
+  func resolveRecovery(_ choice: RecoveryChoice) async
+  func retryLocationUpdates() async
+  func flush() async
   func clearFailure()
+  func clearNotice()
 }
 
 extension TrackingEngine: TrackingOperations {

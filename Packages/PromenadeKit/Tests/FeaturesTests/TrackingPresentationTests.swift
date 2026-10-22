@@ -1,3 +1,4 @@
+import Domain
 import Foundation
 import Testing
 
@@ -53,7 +54,7 @@ struct TrackingPresentationTests {
     await presentation.confirmDialog(engine)
     #expect(engine.pendingTransition == pending)
     #expect(presentation.dialog(for: engine) == .retryTransition(.pause, isPaused: false))
-    #expect(presentation.displayedFailure(engine) == nil)
+    #expect(presentation.banner(for: engine) == nil)
 
     engine.confirmOutcome = .success
     await presentation.confirmDialog(engine)
@@ -94,7 +95,7 @@ struct TrackingPresentationTests {
     #expect(engine.calls.suffix(2) == [.clearFailure, .cancel])
     #expect(presentation.dialog(for: engine) == nil)
     engine.completeCancellation()
-    #expect(presentation.displayedFailure(engine) == nil)
+    #expect(presentation.banner(for: engine) == nil)
   }
 
   // MARK: Resume
@@ -129,7 +130,7 @@ struct TrackingPresentationTests {
     presentation.requestResume(engine)
     await presentation.confirmDialog(engine)
     #expect(presentation.dialog(for: engine) == .retryResume)
-    #expect(presentation.displayedFailure(engine) == nil)
+    #expect(presentation.banner(for: engine) == nil)
 
     clock.advance(30)
     engine.resumeOutcome = .success
@@ -198,16 +199,129 @@ struct TrackingPresentationTests {
     #expect(engine.calls.isEmpty)
   }
 
-  // MARK: Failures outside dialogs
+  // MARK: Banners
 
-  @Test func startAndOperationFailuresAreShownWhenNoDialogOwnsThem() {
-    engine.startFailure = .sensor
+  @Test func bannerLeavesFailuresOfDialogsToTheDialogs() {
     engine.operationFailure = .persistence
-    #expect(presentation.displayedFailure(engine) == .sensor)
-    engine.startFailure = nil
-    #expect(presentation.displayedFailure(engine) == .persistence)
+    #expect(presentation.banner(for: engine) == .pointsUnsaved)
     presentation.requestPause(engine)
-    #expect(presentation.displayedFailure(engine) == nil)
+    #expect(presentation.banner(for: engine) == nil)
+  }
+
+  @Test func bannerRetriesAreRoutedByCause() async {
+    await presentation.retry(.updatesStopped, engine)
+    await presentation.retry(.waitingForAccess(.denied), engine)
+    await presentation.retry(.pointsUnsaved, engine)
+    await presentation.retry(.searching, engine)
+    #expect(engine.calls == [.retryLocationUpdates, .retryLocationUpdates, .flush])
+  }
+
+  @Test func bannerRetryIgnoresTapsWhileInFlight() async {
+    engine.holdsOperations = true
+    let task = Task.immediate { await presentation.retry(.updatesStopped, engine) }
+    await presentation.retry(.updatesStopped, engine)
+    engine.release()
+    await task.value
+    #expect(engine.calls == [.retryLocationUpdates])
+  }
+
+  // MARK: Location access
+
+  @Test(arguments: [
+    (LocationAccessIssue.denied, LocationAccessState.denied),
+    (.servicesDisabled, .servicesDisabled),
+  ])
+  func startReturnsAfterAccessIsAllowedInSettings(
+    _ issue: LocationAccessIssue, _ blocked: LocationAccessState
+  ) {
+    engine.phase = .idle
+    engine.hasLiveSession = false
+    engine.startFailure = .access(issue)
+    #expect(startState(access: blocked) == .hidden)
+
+    presentation.locationAccessChanged(to: .available, engine)
+    #expect(engine.calls == [.clearFailure])
+    #expect(IdleAccessNotice(access: .available, startFailure: engine.startFailure) == nil)
+    #expect(startState(access: .available) == .start)
+  }
+
+  @Test func accessFailureIsKeptWhileAccessIsStillBlocked() {
+    engine.phase = .idle
+    engine.hasLiveSession = false
+    engine.startFailure = .access(.denied)
+    presentation.locationAccessChanged(to: .denied, engine)
+    presentation.locationAccessChanged(to: .fullAccuracyRequired, engine)
+    #expect(engine.calls.isEmpty)
+  }
+
+  @Test func onlyStartAccessFailuresAreClearedByAccessChanges() {
+    engine.phase = .idle
+    engine.hasLiveSession = false
+    engine.startFailure = .persistence
+    presentation.locationAccessChanged(to: .available, engine)
+    engine.startFailure = nil
+    engine.phase = .recording(.waitingForAccess(.denied))
+    engine.hasLiveSession = true
+    engine.operationFailure = .access(.denied)
+    presentation.locationAccessChanged(to: .available, engine)
+    #expect(engine.calls.isEmpty)
+  }
+
+  private func startState(access: LocationAccessState) -> TrackingControlState {
+    let notice = IdleAccessNotice(access: access, startFailure: engine.startFailure)
+    return TrackingControlState(
+      phase: engine.phase, hasLiveSession: engine.hasLiveSession,
+      startAllowed: notice?.allowsStart ?? true)
+  }
+
+  // MARK: Launch recovery
+
+  @Test func recoveryIsAskedOnlyWhileAwaitingADecision() {
+    let lastActivity = clock.date
+    #expect(presentation.recoveryDialog(for: engine) == nil)
+    engine.phase = .awaitingRecoveryDecision(lastActivity: lastActivity)
+    engine.operationFailure = .access(.denied)
+    #expect(
+      presentation.recoveryDialog(for: engine)
+        == RecoveryDialog(lastActivity: lastActivity, failure: .access(.denied)))
+    #expect(presentation.banner(for: engine) == nil)
+    #expect(presentation.dialog(for: engine) == nil)
+  }
+
+  @Test func recoveryIsHiddenWhileResolvingAndAskedAgainAfterFailure() async {
+    engine.phase = .awaitingRecoveryDecision(lastActivity: clock.date)
+    engine.holdsOperations = true
+    let task = Task.immediate { await presentation.resolveRecovery(.resume, engine) }
+    #expect(presentation.recoveryDialog(for: engine) == nil)
+    await presentation.resolveRecovery(.finish, engine)
+    engine.operationFailure = .persistence
+    engine.release()
+    await task.value
+    #expect(engine.calls == [.resolveRecovery(.resume)])
+    #expect(presentation.recoveryDialog(for: engine)?.failure == .persistence)
+  }
+
+  // MARK: Notices
+
+  @Test func noticeIsConsumedOnceAfterItWasShown() async {
+    engine.notice = .autoFinished(sessionID: UUID())
+    await presentation.presentNotice(engine) {}
+    await presentation.presentNotice(engine) {}
+    #expect(engine.calls == [.clearNotice])
+  }
+
+  @Test func noticeIsKeptWhenTheToastDisappearsEarly() async {
+    engine.notice = .autoFinished(sessionID: UUID())
+    await presentation.presentNotice(engine) { throw CancellationError() }
+    #expect(engine.notice != nil)
+    #expect(engine.calls.isEmpty)
+  }
+
+  @Test func aReplacedNoticeIsNotConsumedByTheOldToast() async {
+    engine.notice = .autoFinished(sessionID: UUID())
+    let replacement = TrackingNotice.autoFinished(sessionID: UUID())
+    await presentation.presentNotice(engine) { engine.notice = replacement }
+    #expect(engine.notice == replacement)
   }
 }
 

@@ -7,12 +7,6 @@ public enum LocationEvent: Sendable, Equatable {
   case accessLost(LocationAccessIssue)
 }
 
-public enum LocationAccessIssue: Sendable, Equatable {
-  case denied
-  case servicesDisabled
-  case accuracyLimited
-}
-
 public enum LocationAccessResult: Sendable, Equatable {
   case granted
   case denied(LocationAccessIssue)

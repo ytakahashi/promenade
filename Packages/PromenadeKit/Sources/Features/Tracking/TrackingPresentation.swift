@@ -10,6 +10,11 @@ enum TrackingDialog: Equatable {
   case retryResume
 }
 
+struct RecoveryDialog: Equatable {
+  let lastActivity: Date
+  let failure: TrackingFailure?
+}
+
 /// Transient UI state around tracking operations. Recording state stays in the engine; dialogs are
 /// derived from it on every read so a dismissed or recreated view can never hide a pending
 /// transition or clear one on its own.
@@ -51,11 +56,25 @@ final class TrackingPresentation {
     !isPerforming && !engine.isBusy && engine.pendingTransition == nil && resumeRequest == nil
   }
 
-  /// A failure to show outside dialogs. Failures of an operation being confirmed belong to its
-  /// retry dialog and are not repeated.
-  func displayedFailure(_ engine: some TrackingOperations) -> TrackingFailure? {
-    guard !isPerforming, resumeRequest == nil, engine.pendingTransition == nil else { return nil }
-    return engine.startFailure ?? engine.operationFailure
+  /// The launch recovery choice. Ordinary dialogs never coincide with it: they come from a
+  /// pending transition or a Resume request, and neither can exist while awaiting this decision.
+  func recoveryDialog(for engine: some TrackingOperations) -> RecoveryDialog? {
+    guard !isPerforming, case .awaitingRecoveryDecision(let lastActivity) = engine.phase else {
+      return nil
+    }
+    return RecoveryDialog(lastActivity: lastActivity, failure: engine.operationFailure)
+  }
+
+  func banner(for engine: some TrackingOperations) -> StatusBannerContent? {
+    StatusBannerContent.resolve(
+      phase: engine.phase, startFailure: engine.startFailure,
+      operationFailure: engine.operationFailure, failureOwnedElsewhere: ownsFailure(engine))
+  }
+
+  /// Whether a dialog or an operation in flight accounts for the current failure.
+  private func ownsFailure(_ engine: some TrackingOperations) -> Bool {
+    if case .awaitingRecoveryDecision = engine.phase { return true }
+    return isPerforming || resumeRequest != nil || engine.pendingTransition != nil
   }
 
   func start(_ engine: some TrackingOperations) async {
@@ -129,5 +148,44 @@ final class TrackingPresentation {
       // Resumed, or the engine declined without a failure (e.g. a cancelled access request).
       resumeRequest = nil
     }
+  }
+
+  func resolveRecovery(_ choice: RecoveryChoice, _ engine: some TrackingOperations) async {
+    guard recoveryDialog(for: engine) != nil else { return }
+    isPerforming = true
+    await engine.resolveRecovery(choice)
+    isPerforming = false
+  }
+
+  /// Clears a Start access failure once access is usable again, e.g. after a visit to Settings.
+  /// The idle notice prefers that failure while the monitor lags behind it, and only `start()`
+  /// would clear it otherwise, so a stale failure would keep Start hidden for good.
+  func locationAccessChanged(to access: LocationAccessState, _ engine: some TrackingOperations) {
+    guard access == .available || access == .notDetermined,
+      engine.phase == .idle, !engine.hasLiveSession,
+      engine.startFailure?.isAccess == true
+    else { return }
+    engine.clearFailure()
+  }
+
+  func retry(_ banner: StatusBannerContent, _ engine: some TrackingOperations) async {
+    guard !isPerforming else { return }
+    isPerforming = true
+    defer { isPerforming = false }
+    switch banner {
+    case .waitingForAccess, .updatesStopped: await engine.retryLocationUpdates()
+    case .pointsUnsaved: await engine.flush()
+    case .searching, .startFailed, .failed: break
+    }
+  }
+
+  /// Shows `notice` for as long as `wait` takes, then consumes it. A cancelled wait (the toast
+  /// disappeared) keeps the notice so it is presented again rather than lost.
+  func presentNotice(
+    _ engine: some TrackingOperations, wait: () async throws -> Void
+  ) async {
+    guard let notice = engine.notice else { return }
+    do { try await wait() } catch { return }
+    if engine.notice == notice { engine.clearNotice() }
   }
 }

@@ -44,13 +44,26 @@ The simulator can be changed with `make test SIMULATOR="iPhone 17 Pro"`.
 The app creates its dependencies once in `AppDelegate.init` and begins recovery synchronously in
 `didFinishLaunching`. Storage or recovery-read failures keep recording unavailable and offer Retry
 without deleting saved walks. Tracking displays segment-separated routes and live walking time,
-rest time, distance, and average pace. Recovery decisions are connected in subsequent UI work;
-History and Statistics remain placeholders.
+rest time, distance, and average pace. History and Statistics remain placeholders.
 
 Start begins a walk without confirmation. Pause and Resume take effect from the tap, and Finish
 from the moment a one-second hold completes; each opens a confirmation first. If saving a confirmed
 change fails, Retry reuses the original time, and Cancel keeps the walk in its previous state.
 Under VoiceOver, activating Finish opens the same confirmation without the hold.
+
+Viewing the Tracking tab never requests location permission; the first Start does. When access is
+denied, restricted, approximate only, or Location Services are off, the idle screen explains why.
+Approximate access keeps Start so the walk can ask for temporary precise location. The app re-reads
+authorization and the device-wide Location Services switch when it becomes active; the switch is
+read off the main thread. While recording, a banner reports GPS searching, interrupted access,
+stopped location updates, or unsaved points, with Retry where it applies. Access returning while
+the location stream is alive resumes recording without Retry.
+
+After a termination during a walk, a foreground launch asks whether to resume or finish it on any
+tab. Resume continues from now and counts the gap as an interruption; Finish saves the walk as of
+its last activity. A failed choice asks again with the reason. A walk inactive past the auto-finish
+threshold is finished at launch and announced with a toast, which is cleared only after it has been
+shown.
 
 The map initially follows the device location. Panning preserves the chosen camera until the
 current-location button is used. Viewing the map does not request location permission. Distance

@@ -15,6 +15,9 @@ struct TrackingScreen: View {
       let maxMetricsHeight = geometry.size.height * Self.metricsHeightRatio
       VStack(spacing: 0) {
         TrackingMapView(session: engine.liveSession, locationAccess: locationAccess)
+          .overlay(alignment: .top) {
+            TrackingBanner(engine: engine, presentation: presentation).padding()
+          }
         if let session = engine.liveSession {
           ScrollView {
             LiveMetricsView(
@@ -31,7 +34,8 @@ struct TrackingScreen: View {
             height: min(metricsHeight > 0 ? metricsHeight : maxMetricsHeight, maxMetricsHeight))
         }
         // Outside the scroll view so scrolling cannot compete with the Finish hold gesture.
-        TrackingActions(engine: engine, presentation: presentation)
+        TrackingActions(
+          engine: engine, presentation: presentation, locationAccess: locationAccess)
       }
     }
     .trackingDialogAlert(
@@ -41,7 +45,11 @@ struct TrackingScreen: View {
         // re-reads it; a plain Task would let the still-pending dialog be presented again.
         Task.immediate { await presentation.confirmDialog(engine) }
       },
-      cancel: { presentation.cancelDialog(engine) })
+      cancel: { presentation.cancelDialog(engine) }
+    )
+    .onChange(of: locationAccess) { _, access in
+      presentation.locationAccessChanged(to: access, engine)
+    }
   }
 }
 
@@ -50,17 +58,48 @@ struct TrackingScreen: View {
 private struct TrackingActions: View {
   let engine: TrackingEngine
   let presentation: TrackingPresentation
+  let locationAccess: LocationAccessState
 
   var body: some View {
-    TrackingControls(
-      state: TrackingControlState(phase: engine.phase, hasLiveSession: engine.hasLiveSession),
-      failure: presentation.displayedFailure(engine),
-      isEnabled: presentation.canOperate(engine),
-      isWorking: engine.isBusy || presentation.isPerforming,
-      start: { Task.immediate { await presentation.start(engine) } },
-      pause: { presentation.requestPause(engine) },
-      resume: { presentation.requestResume(engine) },
-      finish: { presentation.requestFinish(engine) },
-      dismissFailure: { engine.clearFailure() })
+    let notice = accessNotice
+    let state = TrackingControlState(
+      phase: engine.phase, hasLiveSession: engine.hasLiveSession,
+      startAllowed: notice?.allowsStart ?? true)
+    if notice != nil || state != .hidden {
+      VStack(spacing: 12) {
+        if let notice { LocationAccessView(notice: notice) }
+        TrackingControls(
+          state: state,
+          isEnabled: presentation.canOperate(engine),
+          isWorking: engine.isBusy || presentation.isPerforming,
+          start: { Task.immediate { await presentation.start(engine) } },
+          pause: { presentation.requestPause(engine) },
+          resume: { presentation.requestResume(engine) },
+          finish: { presentation.requestFinish(engine) })
+      }
+      .padding()
+      .frame(maxWidth: .infinity)
+      .background(.bar)
+    }
+  }
+
+  /// Access problems matter only before a walk exists; afterwards the status banner reports them.
+  private var accessNotice: IdleAccessNotice? {
+    guard engine.phase == .idle, !engine.hasLiveSession else { return nil }
+    return IdleAccessNotice(access: locationAccess, startFailure: engine.startFailure)
+  }
+}
+
+private struct TrackingBanner: View {
+  let engine: TrackingEngine
+  let presentation: TrackingPresentation
+
+  var body: some View {
+    if let content = presentation.banner(for: engine) {
+      StatusBanner(
+        content: content, isWorking: engine.isBusy || presentation.isPerforming,
+        retry: { Task.immediate { await presentation.retry(content, engine) } },
+        dismiss: { engine.clearFailure() })
+    }
   }
 }

@@ -2,13 +2,14 @@ import Domain
 import Features
 import Foundation
 import Persistence
-import Sensors
 import SwiftData
+import Synchronization
 import Testing
 import Tracking
 import UIKit
 
 @testable import Promenade
+@testable import Sensors
 
 @MainActor
 struct AppEnvironmentTests {
@@ -282,6 +283,22 @@ struct AppEnvironmentTests {
     if dependencies.engine.requestFinish(at: Date()) {
       await dependencies.engine.confirmPendingTransition()
     }
+  }
+
+  @Test(.timeLimit(.minutes(1)))
+  func becomingActiveRechecksLocationServices() async throws {
+    let enabled = Mutex(true)
+    let monitor = LocationAuthorizationMonitor(readServicesEnabled: { enabled.withLock { $0 } })
+    let environment = AppEnvironment(
+      makeContainer: { try ModelContainerFactory.make(inMemory: true) },
+      makeSensors: {
+        AppSensors(provider: IdleProvider(), session: StubLocationSession(), authorization: monitor)
+      })
+    await monitor.refreshServicesEnabled()
+    #expect(environment.locationAccess != .servicesDisabled)
+    enabled.withLock { $0 = false }
+    environment.didBecomeActive()
+    while environment.locationAccess != .servicesDisabled { await Task.yield() }
   }
 
   #if DEBUG

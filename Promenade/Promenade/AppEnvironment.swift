@@ -34,7 +34,8 @@ final class AppEnvironment {
   var locationAccess: LocationAccessState {
     guard let monitor = sensors?.authorization else { return .available }
     return .resolve(
-      authorization: monitor.authorizationStatus, accuracy: monitor.accuracyAuthorization)
+      authorization: monitor.authorizationStatus, accuracy: monitor.accuracyAuthorization,
+      servicesEnabled: monitor.locationServicesEnabled)
   }
 
   init(
@@ -116,7 +117,11 @@ final class AppEnvironment {
         )
       }
     }
-    sensors?.authorization?.refreshAuthorization()
+    if let monitor = sensors?.authorization {
+      monitor.refreshAuthorization()
+      // Settings may have turned Location Services on or off while the app was inactive.
+      Task { await monitor.refreshServicesEnabled() }
+    }
   }
 
   private func prepareDependencies() {

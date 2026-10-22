@@ -12,7 +12,11 @@ final class FakeTrackingOperations: TrackingOperations {
     case confirm
     case cancel
     case resume(Date)
+    case resolveRecovery(RecoveryChoice)
+    case retryLocationUpdates
+    case flush
     case clearFailure
+    case clearNotice
   }
 
   enum Outcome { case success, failure, ignored }
@@ -23,6 +27,7 @@ final class FakeTrackingOperations: TrackingOperations {
   var startFailure: TrackingFailure?
   var operationFailure: TrackingFailure?
   var isBusy = false
+  var notice: TrackingNotice?
   var acceptsRequests = true
   var confirmOutcome = Outcome.success
   var resumeOutcome = Outcome.success
@@ -75,6 +80,26 @@ final class FakeTrackingOperations: TrackingOperations {
     case .failure: operationFailure = .persistence
     case .ignored: break
     }
+  }
+
+  func resolveRecovery(_ choice: RecoveryChoice) async {
+    calls.append(.resolveRecovery(choice))
+    await hold()
+  }
+
+  func retryLocationUpdates() async {
+    calls.append(.retryLocationUpdates)
+    await hold()
+  }
+
+  func flush() async {
+    calls.append(.flush)
+    await hold()
+  }
+
+  func clearNotice() {
+    calls.append(.clearNotice)
+    notice = nil
   }
 
   func clearFailure() {

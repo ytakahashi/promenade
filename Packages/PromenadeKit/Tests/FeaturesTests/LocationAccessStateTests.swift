@@ -22,6 +22,16 @@ struct LocationAccessStateTests {
         == .fullAccuracyRequired)
   }
 
+  @Test(arguments: [
+    CLAuthorizationStatus.notDetermined, .denied, .restricted, .authorizedWhenInUse,
+  ])
+  func disabledServicesTakePrecedence(_ status: CLAuthorizationStatus) {
+    #expect(
+      LocationAccessState.resolve(
+        authorization: status, accuracy: .fullAccuracy, servicesEnabled: false)
+        == .servicesDisabled)
+  }
+
   @Test func unknownAuthorizationIsNotAvailable() throws {
     let status = try #require(CLAuthorizationStatus(rawValue: 999))
     #expect(

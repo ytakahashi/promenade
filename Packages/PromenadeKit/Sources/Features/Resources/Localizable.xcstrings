@@ -460,6 +460,246 @@
           }
         }
       }
+    },
+    "Allow location access for Promenade in Settings to record walks.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow location access for Promenade in Settings to record walks."
+          }
+        }
+      }
+    },
+    "Continue Previous Walk?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue Previous Walk?"
+          }
+        }
+      }
+    },
+    "It had no activity for a long time, so it was saved as of its last activity.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It had no activity for a long time, so it was saved as of its last activity."
+          }
+        }
+      }
+    },
+    "Location Access Is Off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location Access Is Off"
+          }
+        }
+      }
+    },
+    "Location Access Is Restricted": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location Access Is Restricted"
+          }
+        }
+      }
+    },
+    "Location Services Are Off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location Services Are Off"
+          }
+        }
+      }
+    },
+    "Location Services were turned off. Turn them on in Settings > Privacy & Security > Location Services to resume.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location Services were turned off. Turn them on in Settings > Privacy & Security > Location Services to resume."
+          }
+        }
+      }
+    },
+    "Location Updates Stopped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location Updates Stopped"
+          }
+        }
+      }
+    },
+    "Location access is restricted on this device, so walks cannot be recorded.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location access is restricted on this device, so walks cannot be recorded."
+          }
+        }
+      }
+    },
+    "Location access was turned off. Recording resumes when access returns.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location access was turned off. Recording resumes when access returns."
+          }
+        }
+      }
+    },
+    "Open Settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Settings"
+          }
+        }
+      }
+    },
+    "Precise Location Is Off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Precise Location Is Off"
+          }
+        }
+      }
+    },
+    "Precise location was turned off. Recording resumes when it is allowed again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Precise location was turned off. Recording resumes when it is allowed again."
+          }
+        }
+      }
+    },
+    "Previous Walk Finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous Walk Finished"
+          }
+        }
+      }
+    },
+    "Recording Interrupted": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recording Interrupted"
+          }
+        }
+      }
+    },
+    "Recording a route needs precise location. Start to allow it for this walk, or turn on Precise Location in Settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recording a route needs precise location. Start to allow it for this walk, or turn on Precise Location in Settings."
+          }
+        }
+      }
+    },
+    "Recording continues. Retry to save them now.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recording continues. Retry to save them now."
+          }
+        }
+      }
+    },
+    "Recording stopped unexpectedly. The last activity was at %@. Resume continues this walk from now and counts the time in between as an interruption. Finish saves it as of the last activity.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recording stopped unexpectedly. The last activity was at %@. Resume continues this walk from now and counts the time in between as an interruption. Finish saves it as of the last activity."
+          }
+        }
+      }
+    },
+    "Retry to continue recording your route.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry to continue recording your route."
+          }
+        }
+      }
+    },
+    "Searching for GPS Signal": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Searching for GPS Signal"
+          }
+        }
+      }
+    },
+    "Some Locations Are Not Saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some Locations Are Not Saved"
+          }
+        }
+      }
+    },
+    "Turn on Location Services in Settings > Privacy & Security > Location Services to record walks.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on Location Services in Settings > Privacy & Security > Location Services to record walks."
+          }
+        }
+      }
+    },
+    "Unable to Start Walk": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to Start Walk"
+          }
+        }
+      }
+    },
+    "Walking time keeps counting.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Walking time keeps counting."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

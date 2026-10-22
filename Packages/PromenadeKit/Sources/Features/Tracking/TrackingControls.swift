@@ -7,13 +7,15 @@ enum TrackingControlState: Equatable {
   case restoring
   case recording
   case paused
-  /// The recovery decision is presented elsewhere.
+  /// The recovery decision is presented elsewhere, or access must be fixed in Settings first.
   case hidden
 
-  init(phase: TrackingPhase, hasLiveSession: Bool) {
+  /// - Parameter startAllowed: false when location access cannot be obtained by starting.
+  init(phase: TrackingPhase, hasLiveSession: Bool, startAllowed: Bool = true) {
     switch phase {
     // During recovery the phase stays idle with a live session; Start would do nothing then.
-    case .idle: self = hasLiveSession ? .restoring : .start
+    case .idle where hasLiveSession: self = .restoring
+    case .idle: self = startAllowed ? .start : .hidden
     case .recording: self = .recording
     case .paused: self = .paused
     case .awaitingRecoveryDecision: self = .hidden
@@ -23,29 +25,14 @@ enum TrackingControlState: Equatable {
 
 struct TrackingControls: View {
   let state: TrackingControlState
-  let failure: TrackingFailure?
   let isEnabled: Bool
   let isWorking: Bool
   let start: () -> Void
   let pause: () -> Void
   let resume: () -> Void
   let finish: () -> Void
-  let dismissFailure: () -> Void
 
   var body: some View {
-    if state != .hidden {
-      VStack(spacing: 12) {
-        if let failure { failureMessage(failure) }
-        buttons
-      }
-      .padding()
-      .frame(maxWidth: .infinity)
-      .background(.bar)
-    }
-  }
-
-  @ViewBuilder
-  private var buttons: some View {
     switch state {
     case .start:
       primaryButton("Start", systemImage: "play.fill", action: start)
@@ -100,19 +87,6 @@ struct TrackingControls: View {
     .disabled(!isEnabled)
   }
 
-  private func failureMessage(_ failure: TrackingFailure) -> some View {
-    HStack(alignment: .firstTextBaseline, spacing: 8) {
-      Image(systemName: "exclamationmark.triangle.fill")
-        .foregroundStyle(.orange)
-        .accessibilityHidden(true)
-      Text(verbatim: failure.message)
-        .font(.subheadline)
-        .frame(maxWidth: .infinity, alignment: .leading)
-      Button(action: dismissFailure) { Text("Dismiss", bundle: .module) }
-        .font(.subheadline)
-    }
-    .accessibilityElement(children: .combine)
-  }
 }
 
 extension TrackingFailure {
@@ -132,17 +106,17 @@ extension TrackingFailure {
         [TrackingControlState.start, .restoring, .recording, .paused], id: \.self
       ) { state in
         TrackingControls(
-          state: state, failure: nil, isEnabled: true, isWorking: false, start: {}, pause: {},
-          resume: {}, finish: {}, dismissFailure: {})
+          state: state, isEnabled: true, isWorking: false, start: {}, pause: {}, resume: {},
+          finish: {})
       }
     }
   }
 }
 
-#Preview("Busy with failure, large text") {
+#Preview("Busy, large text") {
   TrackingControls(
-    state: .paused, failure: .persistence, isEnabled: false, isWorking: true, start: {},
-    pause: {}, resume: {}, finish: {}, dismissFailure: {}
+    state: .paused, isEnabled: false, isWorking: true, start: {}, pause: {}, resume: {},
+    finish: {}
   )
   .environment(\.dynamicTypeSize, .accessibility5)
 }

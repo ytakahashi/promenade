@@ -54,6 +54,25 @@ public struct RootView: View {
         }
       }
     }
+    // Attached above the tabs so launch recovery is decided whichever tab is shown.
+    .recoveryAlert(
+      trackingPresentation.recoveryDialog(for: engine),
+      resume: { Task.immediate { await trackingPresentation.resolveRecovery(.resume, engine) } },
+      finish: { Task.immediate { await trackingPresentation.resolveRecovery(.finish, engine) } }
+    )
+    .overlay(alignment: .top) {
+      if let notice = engine.notice {
+        AutoFinishToast(dismiss: { engine.clearNotice() })
+          .padding()
+          .transition(.move(edge: .top).combined(with: .opacity))
+          .task(id: notice) {
+            await trackingPresentation.presentNotice(engine) {
+              try await Task.sleep(for: AutoFinishToast.displayDuration)
+            }
+          }
+      }
+    }
+    .animation(.default, value: engine.notice)
   }
 
   private var isRecording: Bool {

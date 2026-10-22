@@ -11,6 +11,15 @@ struct TrackingControlStateTests {
     #expect(TrackingControlState(phase: .idle, hasLiveSession: true) == .restoring)
   }
 
+  @Test func blockedAccessHidesStartButNotRecordingControls() {
+    #expect(
+      TrackingControlState(phase: .idle, hasLiveSession: false, startAllowed: false) == .hidden)
+    #expect(
+      TrackingControlState(phase: .idle, hasLiveSession: true, startAllowed: false) == .restoring)
+    #expect(
+      TrackingControlState(phase: .paused, hasLiveSession: true, startAllowed: false) == .paused)
+  }
+
   @Test(arguments: [TrackingPhase.recording(.active), .recording(.searching)])
   func recordingOffersPauseAndFinish(_ phase: TrackingPhase) {
     #expect(TrackingControlState(phase: phase, hasLiveSession: true) == .recording)
