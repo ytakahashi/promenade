@@ -11,6 +11,7 @@ nonisolated struct InertLocationProvider: LocationProvider {
 /// A session that never creates Core Location resources and never grants access.
 @MainActor
 final class InertLocationSession: LocationSession {
+  var canActivateWithoutPrompt: Bool { false }
   func beginActivation() {}
   func activate() async throws -> LocationAccessResult { .denied(.denied) }
   func deactivate() {}

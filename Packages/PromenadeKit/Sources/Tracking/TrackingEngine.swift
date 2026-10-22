@@ -56,6 +56,8 @@ public final class TrackingEngine {
   }
 
   public func start() async {
+    // Reject taps during launch preparation rather than replaying them after recovery completes.
+    guard !recoveryScheduled else { return }
     await queue.run { [self] in
       guard phase == .idle, !recoveryScheduled else { return }
       isBusy = true

@@ -6,7 +6,7 @@ import Sensors
 extension TrackingEngine {
   /// The coordinator calls this synchronously during launch, before returning to the OS.
   func beginRecovery(
-    sessions: [SessionRecord], launch: LaunchContext, now: Date
+    sessions: [SessionRecord], resolver: LaunchContextResolver, now: Date
   ) -> Task<Void, Never> {
     guard phase == .idle, !recoveryScheduled, liveSession == nil else {
       return Task {}
@@ -17,12 +17,27 @@ extension TrackingEngine {
       return $0.startDate > $1.startDate
     }
     let record = ordered.first
-    let decision = RecoveryPolicy(configuration: configuration).decide(
-      session: record, launch: launch, now: now)
-    switch decision {
+    let policy = RecoveryPolicy(configuration: configuration)
+    let foreground = policy.decide(session: record, launch: .foreground, now: now)
+    let background = policy.decide(session: record, launch: .background, now: now)
+    // Policies independent of launch context must not delay idle, paused, or expired sessions.
+    let knownDecision =
+      resolver.context.map { $0 == .foreground ? foreground : background }
+      ?? (foreground == background ? foreground : nil)
+    let provisionalDecision = knownDecision ?? background
+    switch provisionalDecision {
     case .restorePaused, .autoResume:
+      // While the launch is undecided, the reservation is speculative. Skip it when it could show
+      // a permission prompt before the user chooses to resume. Without access, the OS would not
+      // have relaunched the app for location, so a background launch loses nothing here.
+      if knownDecision == nil && !locationSession.canActivateWithoutPrompt {
+        trackingLogger.info(
+          "Launch \(resolver.id, privacy: .public): speculative reservation skipped without access")
+        break
+      }
       // Background launch recovery must recreate resources before this method returns.
       locationSession.beginActivation()
+      trackingLogger.info("Launch \(resolver.id, privacy: .public): location resources reserved")
     default: break
     }
     // Even cancellation before task execution must release the resources created above.
@@ -33,7 +48,9 @@ extension TrackingEngine {
         recoveryScheduled = false
       }
       if let record {
-        await recover(record, decision: decision, now: now)
+        await recover(
+          record, knownDecision: knownDecision, foreground: foreground, background: background,
+          resolver: resolver, now: now)
       }
       for surplus in ordered.dropFirst() {
         do {
@@ -45,21 +62,38 @@ extension TrackingEngine {
         } catch { report(error) }
       }
     }
-    if case .autoResume = decision {
+    if case .autoResume = provisionalDecision {
       // Reserve the subscription task synchronously; it cannot consume events before restoration.
-      startUpdates(after: preparation)
+      startUpdates(after: preparation, recoveryID: resolver.id)
     }
     return preparation
   }
 
-  private func recover(_ record: SessionRecord, decision: RecoveryDecision, now: Date) async {
+  private func recover(
+    _ record: SessionRecord, knownDecision: RecoveryDecision?, foreground: RecoveryDecision,
+    background: RecoveryDecision, resolver: LaunchContextResolver, now: Date
+  ) async {
     liveSession = makeLive(record)
     do {
       try Task.checkCancellation()
+      let decision: RecoveryDecision
+      if let knownDecision {
+        decision = knownDecision
+      } else {
+        decision = try await resolver.wait() == .foreground ? foreground : background
+      }
       switch decision {
       case .none: liveSession = nil
       case .askUser(let lastActivity):
+        // A speculative background activation must not survive while waiting for user consent.
+        if knownDecision == nil {
+          stopUpdates()
+          locationSession.deactivate()
+          trackingLogger.info(
+            "Launch \(resolver.id, privacy: .public): speculative location resources released")
+        }
         phase = .awaitingRecoveryDecision(lastActivity: lastActivity)
+        trackingLogger.info("Launch \(resolver.id, privacy: .public): awaiting recovery decision")
       case .autoFinish(let date):
         phase = .awaitingRecoveryDecision(lastActivity: date)
         try await interruptIfOpen()
@@ -89,8 +123,11 @@ extension TrackingEngine {
         }
       }
     } catch is CancellationError {
+      resolver.cancel()
       stopUpdates()
       locationSession.deactivate()
+      trackingLogger.info(
+        "Launch \(resolver.id, privacy: .public): recovery cancelled and resources released")
       phase =
         record.state == .paused
         ? .paused : .awaitingRecoveryDecision(lastActivity: record.lastActivityDate)

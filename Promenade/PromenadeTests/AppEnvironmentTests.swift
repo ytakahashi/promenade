@@ -56,7 +56,7 @@ struct AppEnvironmentTests {
       return
     }
     #expect(failure.kind == .storage)
-    environment.beginRecovery(launch: .background)
+    environment.beginRecovery(locationLaunch: false)
     #expect(containers == 1)
     #expect(environment.recoveryTask == nil)
     environment.retry()
@@ -88,9 +88,10 @@ struct AppEnvironmentTests {
         return [record]
       })
     let engine = try #require(environment.dependencies?.engine)
-    environment.beginRecovery(launch: .background)
+    environment.beginRecovery(locationLaunch: false)
     #expect(reads == 1)
     #expect(environment.recoveryTask == nil)
+    #expect(environment.launchResolver == nil)
     #expect(engine.phase == .idle)
     guard case .failed(let failure) = environment.state else {
       Issue.record("Expected a recovery read failure")
@@ -104,13 +105,16 @@ struct AppEnvironmentTests {
     #expect(reads == 2)
     #expect(engine.phase == .awaitingRecoveryDecision(lastActivity: record.startDate))
     #expect(session.begins == 0)
+    #expect(environment.launchResolver?.reason == .retry)
     environment.beginRecovery(launch: .background)
     environment.retry()
     #expect(reads == 2)
   }
 
-  @Test(arguments: [UIApplication.State.background, .inactive, .active])
-  func delegateBeginsRecoverySynchronously(_ state: UIApplication.State) async throws {
+  @Test(arguments: [UIApplication.State.background, .inactive, .active], [false, true])
+  func delegateBeginsRecoverySynchronously(
+    _ state: UIApplication.State, hasLocationOption: Bool
+  ) async throws {
     let session = StubLocationSession()
     var reads = 0
     let start = Date()
@@ -127,22 +131,104 @@ struct AppEnvironmentTests {
     let delegate = AppDelegate(environment: environment)
     #expect(reads == 0)
     #expect(session.begins == 0)
-    delegate.beginRecovery(applicationState: state)
+    delegate.beginRecovery(applicationState: state, hasLocationOption: hasLocationOption)
     #expect(delegate.environment === environment)
     #expect(reads == 1)
-    #expect(session.begins == (state == .background ? 1 : 0))
+    #expect(session.begins == 1)
     #expect(environment.state == .ready)
+    if !hasLocationOption {
+      #expect(environment.launchResolver?.context == nil)
+      // The initial background Scene value must flush without settling or cancelling recovery.
+      await environment.didEnterBackground()?.value
+      #expect(environment.dependencies?.engine.phase == .idle)
+      #expect(environment.recoveryTask?.isCancelled == false)
+      environment.didBecomeActive()
+    }
     await environment.recoveryTask?.value
-    if state == .background {
+    environment.didBecomeActive()
+    delegate.beginRecovery(applicationState: state, hasLocationOption: hasLocationOption)
+    #expect(reads == 1)
+    if hasLocationOption {
       #expect(dependencies.engine.phase == .recording(.searching))
+      #expect(session.deactivations == 0)
       #expect(dependencies.engine.requestFinish(at: Date()))
       await dependencies.engine.confirmPendingTransition()
       #expect(dependencies.engine.phase == .idle)
     } else {
+      #expect(session.deactivations == 1)
+      #expect(environment.launchResolver?.reason == .sceneActive)
       #expect(
         environment.dependencies?.engine.phase
           == .awaitingRecoveryDecision(lastActivity: start))
     }
+  }
+
+  @Test func activeObservedBeforeRecoveryIsNotMissed() async throws {
+    let session = StubLocationSession()
+    let record = SessionRecord(
+      id: UUID(), startDate: Date(), state: .recording,
+      timeZoneIdentifier: "UTC", segments: [])
+    let environment = AppEnvironment(
+      makeContainer: { try ModelContainerFactory.make(inMemory: true) },
+      makeSensors: { AppSensors(provider: IdleProvider(), session: session, authorization: nil) },
+      readUnfinished: { _ in [record] })
+    environment.didBecomeActive()
+    AppDelegate(environment: environment).beginRecovery(applicationState: .background)
+    await environment.recoveryTask?.value
+    #expect(environment.launchResolver?.context == .foreground)
+    #expect(
+      environment.dependencies?.engine.phase
+        == .awaitingRecoveryDecision(lastActivity: record.startDate))
+    #expect(session.begins == 0)
+  }
+
+  @Test func applicationCallbackForwardsLocationLaunchOption() async throws {
+    let environment = try makeEnvironment()
+    let delegate = AppDelegate(environment: environment)
+    let dependencies = try #require(environment.dependencies)
+    try await dependencies.store.createSession(id: UUID(), startDate: Date(), timeZone: .current)
+    // An already-active scene must not replace an explicit location launch reason.
+    environment.didBecomeActive()
+    #expect(
+      delegate.application(UIApplication.shared, didFinishLaunchingWithOptions: [.location: true]))
+    #expect(environment.launchResolver?.context == .background)
+    #expect(environment.launchResolver?.reason == .locationOption)
+    await environment.recoveryTask?.value
+    #expect(dependencies.engine.phase == .recording(.searching))
+    #expect(dependencies.engine.requestFinish(at: Date()))
+    await dependencies.engine.confirmPendingTransition()
+  }
+
+  @Test func deadlineResumesAndLateActiveDoesNotRepeatRecovery() async throws {
+    let session = StubLocationSession()
+    var reads = 0
+    var timeout: TimeInterval?
+    let environment = AppEnvironment(
+      makeContainer: { try ModelContainerFactory.make(inMemory: true) },
+      makeSensors: { AppSensors(provider: IdleProvider(), session: session, authorization: nil) },
+      readUnfinished: {
+        reads += 1
+        return try AppDependencies.readUnfinishedSessions(container: $0)
+      },
+      makeLaunchResolver: {
+        timeout = $0
+        return LaunchContextResolver(timeout: $0, sleepUntil: { _ in })
+      })
+    let dependencies = try #require(environment.dependencies)
+    try await dependencies.store.createSession(id: UUID(), startDate: Date(), timeZone: .current)
+    environment.beginRecovery(locationLaunch: false)
+    await environment.recoveryTask?.value
+    #expect(timeout == environment.configuration.launchContextTimeout)
+    #expect(environment.launchResolver?.reason == .deadline)
+    #expect(dependencies.engine.phase == .recording(.searching))
+    environment.didBecomeActive()
+    environment.beginRecovery(locationLaunch: false)
+    environment.retry()
+    #expect(reads == 1)
+    #expect(session.begins == 1)
+    #expect(dependencies.engine.phase == .recording(.searching))
+    #expect(dependencies.engine.requestFinish(at: Date()))
+    await dependencies.engine.confirmPendingTransition()
   }
 
   @Test func summaryReaderObservesFinishAfterAnEarlierRead() async throws {
@@ -264,6 +350,7 @@ nonisolated private struct IdleProvider: LocationProvider {
 
 @MainActor
 private final class StubLocationSession: LocationSession {
+  var canActivateWithoutPrompt = true
   var begins = 0
   var deactivations = 0
   var holdActivation = false

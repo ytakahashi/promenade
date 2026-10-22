@@ -4,7 +4,7 @@ import Sensors
 
 // Location subscription and event handling.
 extension TrackingEngine {
-  func startUpdates(after preparation: Task<Void, Never>? = nil) {
+  func startUpdates(after preparation: Task<Void, Never>? = nil, recoveryID: UUID? = nil) {
     stopUpdates()
     let id = UUID()
     subscriptionID = id
@@ -15,6 +15,10 @@ extension TrackingEngine {
         case .recording(let status) = self?.phase,
         status == .searching || status == .active
       else { return }
+      if let recoveryID {
+        trackingLogger.info(
+          "Launch \(recoveryID, privacy: .public): subscribing to location updates")
+      }
       do {
         for try await event in provider.events() {
           try Task.checkCancellation()

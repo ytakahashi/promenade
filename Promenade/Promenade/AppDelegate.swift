@@ -1,5 +1,7 @@
 import Domain
+import Tracking
 import UIKit
+import os
 
 @MainActor
 final class AppDelegate: NSObject, UIApplicationDelegate {
@@ -26,14 +28,22 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
     if recoversOnLaunch {
-      beginRecovery(applicationState: application.applicationState)
+      beginRecovery(
+        applicationState: application.applicationState,
+        hasLocationOption: launchOptions?[.location] != nil)
     }
     return true
   }
 
-  func beginRecovery(applicationState: UIApplication.State) {
+  func beginRecovery(applicationState: UIApplication.State, hasLocationOption: Bool = false) {
     // Background relaunches have little time: recreate location resources before returning
     // to UIKit. Do not move this call into a Task or a SwiftUI view lifecycle callback.
-    environment.beginRecovery(launch: applicationState == .background ? .background : .foreground)
+    environment.beginRecovery(locationLaunch: hasLocationOption)
+    // Scene apps can report background for a normal launch; this value is diagnostic only.
+    // Match the ID format of the other launch logs so entries can be correlated by search.
+    let launchID = environment.launchResolver?.id.uuidString ?? "none"
+    launchLogger.info(
+      "Launch \(launchID, privacy: .public): locationOption \(hasLocationOption), applicationState \(applicationState.rawValue)"
+    )
   }
 }

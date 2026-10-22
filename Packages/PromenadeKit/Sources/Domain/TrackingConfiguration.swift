@@ -21,6 +21,8 @@ public struct TrackingConfiguration: Sendable, Equatable {
   /// Seconds to wait for a definitive access result when resuming after a background relaunch
   /// before subscribing to location updates anyway.
   public var recoveryActivationTimeout: TimeInterval
+  /// Seconds to wait for a scene to become active before inferring a background launch.
+  public var launchContextTimeout: TimeInterval
 
   public init(
     storageMaxHorizontalAccuracy: Double,
@@ -29,7 +31,8 @@ public struct TrackingConfiguration: Sendable, Equatable {
     relaunchSplitThreshold: TimeInterval = 60,
     autoFinishThreshold: TimeInterval = 6 * 60 * 60,
     saveBatchSize: Int = 10,
-    recoveryActivationTimeout: TimeInterval = 10
+    recoveryActivationTimeout: TimeInterval = 10,
+    launchContextTimeout: TimeInterval = 3
   ) {
     self.storageMaxHorizontalAccuracy = storageMaxHorizontalAccuracy
     self.route = route
@@ -38,6 +41,7 @@ public struct TrackingConfiguration: Sendable, Equatable {
     self.autoFinishThreshold = autoFinishThreshold
     self.saveBatchSize = saveBatchSize
     self.recoveryActivationTimeout = recoveryActivationTimeout
+    self.launchContextTimeout = launchContextTimeout
   }
 
   public static let `default` = TrackingConfiguration(

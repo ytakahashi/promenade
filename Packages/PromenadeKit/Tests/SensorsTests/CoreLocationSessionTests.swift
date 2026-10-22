@@ -1,3 +1,4 @@
+import CoreLocation
 import Testing
 
 @testable import Sensors
@@ -76,6 +77,21 @@ struct CoreLocationSessionTests {
     #expect(first.invalidations == 1)
     #expect(second.invalidations == 0)
     session.deactivate()
+  }
+
+  @Test(arguments: [
+    (CLAuthorizationStatus.authorizedWhenInUse, true),
+    (.authorizedAlways, true),
+    (.notDetermined, false),
+    (.denied, false),
+    (.restricted, false),
+  ])
+  func activationWithoutPromptRequiresGrantedAuthorization(
+    _ status: CLAuthorizationStatus, _ expected: Bool
+  ) {
+    let session = CoreLocationSession(
+      makeResources: { FakeResources() }, authorizationStatus: { status })
+    #expect(session.canActivateWithoutPrompt == expected)
   }
 
   @Test func releasingSessionInvalidatesResources() {

@@ -9,7 +9,7 @@ struct PromenadeApp: App {
   var body: some Scene {
     WindowGroup {
       AppContentView(environment: delegate.environment)
-        .onChange(of: scenePhase) { _, phase in
+        .onChange(of: scenePhase, initial: true) { _, phase in
           switch phase {
           case .background: delegate.environment.didEnterBackground()
           case .active: delegate.environment.didBecomeActive()

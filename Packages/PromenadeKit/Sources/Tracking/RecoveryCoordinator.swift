@@ -22,7 +22,15 @@ public struct RecoveryCoordinator {
   /// Resources and the recovery task are created synchronously; await the result only afterward.
   @discardableResult
   public func beginRecovery(launch: LaunchContext) throws -> Task<Void, Never> {
+    try beginRecovery(resolvingLaunch: LaunchContextResolver(known: launch))
+  }
+
+  /// Reads and reserves resources synchronously even when the launch context is undecided.
+  @discardableResult
+  public func beginRecovery(resolvingLaunch resolver: LaunchContextResolver) throws
+    -> Task<Void, Never>
+  {
     let sessions = try readUnfinishedSessions()
-    return engine.beginRecovery(sessions: sessions, launch: launch, now: dates.now())
+    return engine.beginRecovery(sessions: sessions, resolver: resolver, now: dates.now())
   }
 }

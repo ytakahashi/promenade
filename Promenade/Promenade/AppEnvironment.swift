@@ -6,6 +6,7 @@ import Persistence
 import Sensors
 import SwiftData
 import Tracking
+import os
 
 @MainActor
 @Observable
@@ -20,11 +21,15 @@ final class AppEnvironment {
   private(set) var state: State = .waitingForLaunch
   private(set) var dependencies: AppDependencies?
   @ObservationIgnored private(set) var recoveryTask: Task<Void, Never>?
+  @ObservationIgnored private(set) var launchResolver: LaunchContextResolver?
+  @ObservationIgnored private var observedActive = false
   @ObservationIgnored private var sensors: AppSensors?
   @ObservationIgnored private let makeSensors: @MainActor () throws -> AppSensors
   @ObservationIgnored private let makeContainer: @MainActor () throws -> ModelContainer
   @ObservationIgnored private let readUnfinished:
     @MainActor (ModelContainer) throws -> [SessionRecord]
+  @ObservationIgnored private let makeLaunchResolver:
+    @MainActor (TimeInterval) -> LaunchContextResolver
 
   var locationAccess: LocationAccessState {
     guard let monitor = sensors?.authorization else { return .available }
@@ -42,23 +47,44 @@ final class AppEnvironment {
     },
     readUnfinished: @escaping @MainActor (ModelContainer) throws -> [SessionRecord] = {
       try AppDependencies.readUnfinishedSessions(container: $0)
+    },
+    makeLaunchResolver: @escaping @MainActor (TimeInterval) -> LaunchContextResolver = {
+      LaunchContextResolver(timeout: $0)
     }
   ) {
     self.configuration = configuration
     self.makeContainer = makeContainer
     self.makeSensors = makeSensors
     self.readUnfinished = readUnfinished
+    self.makeLaunchResolver = makeLaunchResolver
     prepareDependencies()
   }
 
   func beginRecovery(launch: LaunchContext) {
+    beginRecovery { LaunchContextResolver(known: launch) }
+  }
+
+  func beginRecovery(locationLaunch: Bool) {
+    beginRecovery {
+      if locationLaunch {
+        return LaunchContextResolver(known: .background, reason: .locationOption)
+      }
+      // SwiftUI may have delivered its initial active value before the delegate starts recovery.
+      if observedActive { return LaunchContextResolver(known: .foreground, reason: .sceneActive) }
+      return makeLaunchResolver(configuration.launchContextTimeout)
+    }
+  }
+
+  private func beginRecovery(makeResolver: () -> LaunchContextResolver) {
     guard recoveryTask == nil, let dependencies else { return }
+    let resolver = makeResolver()
     do {
       let readUnfinished = readUnfinished
       recoveryTask = try RecoveryCoordinator(
         engine: dependencies.engine,
         readUnfinishedSessions: { try readUnfinished(dependencies.container) }
-      ).beginRecovery(launch: launch)
+      ).beginRecovery(resolvingLaunch: resolver)
+      launchResolver = resolver
       // Ready means recovery was handed to the engine, not that authorization has completed.
       state = .ready
     } catch {
@@ -70,7 +96,7 @@ final class AppEnvironment {
     guard case .failed = state, recoveryTask == nil else { return }
     if dependencies == nil { prepareDependencies() }
     // An explicit retry from the UI must not reuse a background launch's auto-resume policy.
-    beginRecovery(launch: .foreground)
+    beginRecovery { LaunchContextResolver(known: .foreground, reason: .retry) }
   }
 
   @discardableResult
@@ -81,6 +107,15 @@ final class AppEnvironment {
   }
 
   func didBecomeActive() {
+    if !observedActive {
+      observedActive = true
+      if let resolver = launchResolver {
+        let accepted = resolver.resolve(.foreground)
+        launchLogger.info(
+          "Launch \(resolver.id, privacy: .public): first scene active after \(String(describing: resolver.elapsed), privacy: .public), accepted \(accepted)"
+        )
+      }
+    }
     sensors?.authorization?.refreshAuthorization()
   }
 
@@ -105,3 +140,6 @@ final class AppEnvironment {
     }
   }
 }
+
+let launchLogger = Logger(
+  subsystem: Bundle.main.bundleIdentifier ?? "Promenade", category: "launch")

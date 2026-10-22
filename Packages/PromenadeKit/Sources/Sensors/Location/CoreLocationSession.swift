@@ -16,16 +16,34 @@ public final class CoreLocationSession: LocationSession {
   }
 
   private let makeResources: @MainActor () -> any LocationSessionResources
+  private let authorizationStatus: @MainActor () -> CLAuthorizationStatus
   private var activation: Activation?
 
   /// - Parameter fullAccuracyPurposeKey: Must match a key of
   ///   `NSLocationTemporaryUsageDescriptionDictionary` in the app's Info.plist.
   public convenience init(fullAccuracyPurposeKey: String = "RouteRecording") {
-    self.init(makeResources: { CoreLocationSessionResources(purposeKey: fullAccuracyPurposeKey) })
+    let manager = CLLocationManager()
+    self.init(
+      makeResources: { CoreLocationSessionResources(purposeKey: fullAccuracyPurposeKey) },
+      authorizationStatus: { manager.authorizationStatus })
   }
 
-  init(makeResources: @escaping @MainActor () -> any LocationSessionResources) {
+  init(
+    makeResources: @escaping @MainActor () -> any LocationSessionResources,
+    authorizationStatus: @escaping @MainActor () -> CLAuthorizationStatus = {
+      .authorizedWhenInUse
+    }
+  ) {
     self.makeResources = makeResources
+    self.authorizationStatus = authorizationStatus
+  }
+
+  /// A service session created while authorization is undecided can show the permission prompt.
+  public var canActivateWithoutPrompt: Bool {
+    switch authorizationStatus() {
+    case .authorizedWhenInUse, .authorizedAlways: true
+    default: false
+    }
   }
 
   public func beginActivation() {

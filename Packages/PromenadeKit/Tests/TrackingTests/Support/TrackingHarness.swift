@@ -70,6 +70,7 @@ final class TestDates: DateProvider {
 @MainActor
 final class TestLocationSession: LocationSession {
   var result: LocationAccessResult = .granted
+  var canActivateWithoutPrompt = true
   var error: (any Error)?
   var onActivate: (() -> Void)?
   var gate: TestGate?
