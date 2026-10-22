@@ -8,6 +8,8 @@ public struct RootView: View {
   let configuration: TrackingConfiguration
   let locationAccess: LocationAccessState
   let readSession: @MainActor (UUID) throws -> SessionRecord?
+  /// Owned here rather than by the tab so presentation state outlives the tracking screen.
+  @State private var trackingPresentation = TrackingPresentation()
 
   public init(
     engine: TrackingEngine, configuration: TrackingConfiguration,
@@ -23,7 +25,8 @@ public struct RootView: View {
   public var body: some View {
     TabView {
       Tab {
-        TrackingScreen(engine: engine, locationAccess: locationAccess)
+        TrackingScreen(
+          engine: engine, presentation: trackingPresentation, locationAccess: locationAccess)
       } label: {
         Label {
           Text("Tracking", bundle: .module)

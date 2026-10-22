@@ -220,6 +220,246 @@
           }
         }
       }
+    },
+    "Start": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start"
+          }
+        }
+      }
+    },
+    "Pause": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause"
+          }
+        }
+      }
+    },
+    "Resume": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume"
+          }
+        }
+      }
+    },
+    "Finish": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish"
+          }
+        }
+      }
+    },
+    "Hold to Finish": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hold to Finish"
+          }
+        }
+      }
+    },
+    "Opens a confirmation to finish the walk.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens a confirmation to finish the walk."
+          }
+        }
+      }
+    },
+    "Restoring walk": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restoring walk"
+          }
+        }
+      }
+    },
+    "Dismiss": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dismiss"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "Location access is unavailable.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location access is unavailable."
+          }
+        }
+      }
+    },
+    "Location updates are unavailable.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location updates are unavailable."
+          }
+        }
+      }
+    },
+    "The walk could not be saved.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The walk could not be saved."
+          }
+        }
+      }
+    },
+    "Pause Walk?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause Walk?"
+          }
+        }
+      }
+    },
+    "Finish Walk?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish Walk?"
+          }
+        }
+      }
+    },
+    "Resume Walk?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume Walk?"
+          }
+        }
+      }
+    },
+    "Unable to Pause Walk": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to Pause Walk"
+          }
+        }
+      }
+    },
+    "Unable to Finish Walk": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to Finish Walk"
+          }
+        }
+      }
+    },
+    "Unable to Resume Walk": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to Resume Walk"
+          }
+        }
+      }
+    },
+    "Rest time starts from when you tapped Pause.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rest time starts from when you tapped Pause."
+          }
+        }
+      }
+    },
+    "Recording stops, and the walk is saved up to when you held Finish.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recording stops, and the walk is saved up to when you held Finish."
+          }
+        }
+      }
+    },
+    "Walking time restarts from when you tapped Resume.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Walking time restarts from when you tapped Resume."
+          }
+        }
+      }
+    },
+    "%@ Retry keeps the original time. Cancel to continue recording.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ Retry keeps the original time. Cancel to continue recording."
+          }
+        }
+      }
+    },
+    "%@ Retry keeps the time you first tapped Resume. Cancel and tap Resume again to start from a new time.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ Retry keeps the time you first tapped Resume. Cancel and tap Resume again to start from a new time."
+          }
+        }
+      }
+    },
+    "%@ Retry keeps the original time. Cancel to stay paused.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ Retry keeps the original time. Cancel to stay paused."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

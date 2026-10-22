@@ -44,8 +44,13 @@ The simulator can be changed with `make test SIMULATOR="iPhone 17 Pro"`.
 The app creates its dependencies once in `AppDelegate.init` and begins recovery synchronously in
 `didFinishLaunching`. Storage or recovery-read failures keep recording unavailable and offer Retry
 without deleting saved walks. Tracking displays segment-separated routes and live walking time,
-rest time, distance, and average pace. Recording controls and recovery decisions are connected in
-subsequent UI work; History and Statistics remain placeholders.
+rest time, distance, and average pace. Recovery decisions are connected in subsequent UI work;
+History and Statistics remain placeholders.
+
+Start begins a walk without confirmation. Pause and Resume take effect from the tap, and Finish
+from the moment a one-second hold completes; each opens a confirmation first. If saving a confirmed
+change fails, Retry reuses the original time, and Cancel keeps the walk in its previous state.
+Under VoiceOver, activating Finish opens the same confirmation without the hold.
 
 The map initially follows the device location. Panning preserves the chosen camera until the
 current-location button is used. Viewing the map does not request location permission. Distance
@@ -54,9 +59,8 @@ unavailable below 50 meters, and durations retain hours beyond 24. Time updates 
 the metrics panel; they do not rebuild route coordinates.
 
 Features previews cover separate segments, empty/single-point routes, a large route, metric/mile
-formatting, and large text. A new walk cannot yet be started from the UI. Use previews or an isolated
-in-memory harness to inspect live data until recording controls are connected. Replay route points
-are distinct from MapKit's device location, so pan to the route when inspecting replayed data.
+formatting, large text, and each control state. Replay route points are distinct from MapKit's
+device location, so pan to the route when inspecting replayed data.
 
 Launch recovery reserves location resources synchronously, then waits for the first active scene
 before choosing the foreground recovery policy. If no scene becomes active within 3 seconds, it
