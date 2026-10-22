@@ -27,7 +27,7 @@
 
   #Preview("One point per segment") {
     RouteMapView(
-      content: .preview(pointCount: 1), locationAccess: .denied,
+      content: .preview(pointCount: 1), camera: .followsUser(.denied),
       initialPosition: .region(
         MKCoordinateRegion(
           center: CLLocationCoordinate2D(latitude: 35.68, longitude: 139.75),
@@ -36,6 +36,6 @@
 
   #Preview("Two hours, 7,200 accepted points") {
     RouteMapView(
-      content: .preview(pointCount: 3600), locationAccess: .denied, initialPosition: .automatic)
+      content: .preview(pointCount: 3600), camera: .fitsRoute)
   }
 #endif

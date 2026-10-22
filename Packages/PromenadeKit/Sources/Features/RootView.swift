@@ -62,17 +62,36 @@ public struct RootView: View {
     )
     .overlay(alignment: .top) {
       if let notice = engine.notice {
-        AutoFinishToast(dismiss: { engine.clearNotice() })
-          .padding()
-          .transition(.move(edge: .top).combined(with: .opacity))
-          .task(id: notice) {
-            await trackingPresentation.presentNotice(engine) {
-              try await Task.sleep(for: AutoFinishToast.displayDuration)
-            }
+        AutoFinishToast(
+          view: { trackingPresentation.showSummary(of: notice, engine) },
+          dismiss: { engine.clearNotice() }
+        )
+        .padding()
+        .transition(.move(edge: .top).combined(with: .opacity))
+        .task(id: notice) {
+          await trackingPresentation.presentNotice(engine) {
+            try await Task.sleep(for: AutoFinishToast.displayDuration)
           }
+        }
       }
     }
     .animation(.default, value: engine.notice)
+    .onChange(of: engine.lastFinishedSessionID, initial: true) {
+      trackingPresentation.consumeFinishedSession(engine)
+    }
+    .onChange(of: engine.isBusy) {
+      trackingPresentation.consumeFinishedSession(engine)
+    }
+    .sheet(
+      item: Binding(
+        get: { trackingPresentation.summary },
+        set: { if $0 == nil { trackingPresentation.dismissSummary() } })
+    ) { item in
+      SessionSummarySheet(
+        model: SessionSummaryModel(
+          sessionID: item.id, route: configuration.route, read: readSession),
+        close: { trackingPresentation.dismissSummary() })
+    }
   }
 
   private var isRecording: Bool {

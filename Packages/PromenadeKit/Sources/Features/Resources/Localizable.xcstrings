@@ -700,6 +700,136 @@
           }
         }
       }
+    },
+    "Average speed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Average speed"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
+    "Finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finished"
+          }
+        }
+      }
+    },
+    "Interrupted time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interrupted time"
+          }
+        }
+      }
+    },
+    "Invalid Storage Options": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid Storage Options"
+          }
+        }
+      }
+    },
+    "No route was recorded.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No route was recorded."
+          }
+        }
+      }
+    },
+    "Started": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Started"
+          }
+        }
+      }
+    },
+    "The walk is saved. Retry to read it again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The walk is saved. Retry to read it again."
+          }
+        }
+      }
+    },
+    "Unable to Read Walk": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to Read Walk"
+          }
+        }
+      }
+    },
+    "View": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View"
+          }
+        }
+      }
+    },
+    "Walk Is Still Being Saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Walk Is Still Being Saved"
+          }
+        }
+      }
+    },
+    "Walk Not Found": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Walk Not Found"
+          }
+        }
+      }
+    },
+    "Walk Summary": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Walk Summary"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -29,6 +29,7 @@ Module dependencies: `Features → Tracking → (Sensors, Persistence) → Domai
 | Command | Description |
 |---|---|
 | `make build` | Build the app for the iOS Simulator |
+| `make build-release` | Build Release and fail if Debug-only launch options remain in the app |
 | `make test` | Run package unit tests on the iOS Simulator |
 | `make test-app` | Run app-hosted unit tests on the iOS Simulator |
 | `make test-ui` | Run UI tests on the iOS Simulator |
@@ -38,6 +39,10 @@ Module dependencies: `Features → Tracking → (Sensors, Persistence) → Domai
 The simulator can be changed with `make test SIMULATOR="iPhone 17 Pro"`.
 
 `make test` runs only package tests, including Features tests. It does not run app-hosted or UI tests.
+
+UI tests drive recording with Replay and pass `-StoreURL <absolute path>` (Debug only) so each test
+uses its own store file in a temporary directory; they never read or reset the regular store. An
+invalid `-StoreURL` shows an error instead of falling back to the regular store.
 
 ## Launch and Replay
 
@@ -58,6 +63,12 @@ authorization and the device-wide Location Services switch when it becomes activ
 read off the main thread. While recording, a banner reports GPS searching, interrupted access,
 stopped location updates, or unsaved points, with Retry where it applies. Access returning while
 the location stream is alive resumes recording without Retry.
+
+After Finish, a summary sheet reads the saved walk again and shows its route, distance, walking,
+rest, and interrupted time, average speed and pace, and start and end times in the time zone it
+was recorded in (named when it differs from the device's). A read failure offers Retry for the
+same walk. The summary opens once per finished walk, including after choosing Finish when
+recovering; a walk auto-finished at launch opens its summary only from the toast's View button.
 
 After a termination during a walk, a foreground launch asks whether to resume or finish it on any
 tab. Resume continues from now and counts the gap as an interruption; Finish saves the walk as of

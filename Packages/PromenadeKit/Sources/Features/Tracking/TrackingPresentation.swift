@@ -33,6 +33,8 @@ final class TrackingPresentation {
   private(set) var failedTransitionID: UUID?
   /// Set before calling the engine: `isBusy` is raised only once the engine's queue runs the call.
   private(set) var isPerforming = false
+  /// The finished walk whose summary is shown.
+  private(set) var summary: SummaryItem?
   @ObservationIgnored private let now: () -> Date
 
   init(now: @escaping () -> Date = Date.init) {
@@ -188,4 +190,24 @@ final class TrackingPresentation {
     do { try await wait() } catch { return }
     if engine.notice == notice { engine.clearNotice() }
   }
+
+  /// Takes the walk the engine just finished for its summary, once.
+  ///
+  /// Waits while the engine is busy: launch recovery sets the auto-finish notice only after
+  /// finishing, and an auto-finished walk is announced by its toast instead of a summary.
+  func consumeFinishedSession(_ engine: some TrackingOperations) {
+    guard !engine.isBusy, let id = engine.lastFinishedSessionID else { return }
+    if engine.notice != .autoFinished(sessionID: id) { summary = SummaryItem(id: id) }
+    // Cleared after taking it so a recreated view does not show the summary again.
+    engine.clearLastFinishedSession()
+  }
+
+  /// Opens the summary of an auto-finished walk from its toast.
+  func showSummary(of notice: TrackingNotice, _ engine: some TrackingOperations) {
+    guard case .autoFinished(let id) = notice else { return }
+    engine.clearNotice()
+    summary = SummaryItem(id: id)
+  }
+
+  func dismissSummary() { summary = nil }
 }

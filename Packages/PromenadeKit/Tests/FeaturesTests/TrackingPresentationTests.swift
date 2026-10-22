@@ -301,6 +301,48 @@ struct TrackingPresentationTests {
     #expect(presentation.recoveryDialog(for: engine)?.failure == .persistence)
   }
 
+  // MARK: Summary
+
+  @Test func finishedWalkOpensItsSummaryOnce() {
+    let id = UUID()
+    engine.lastFinishedSessionID = id
+    presentation.consumeFinishedSession(engine)
+    presentation.consumeFinishedSession(engine)
+    #expect(presentation.summary == SummaryItem(id: id))
+    #expect(engine.calls == [.clearLastFinishedSession])
+    presentation.dismissSummary()
+    #expect(presentation.summary == nil)
+  }
+
+  @Test func finishedWalkWaitsUntilTheEngineIsIdle() {
+    engine.lastFinishedSessionID = UUID()
+    engine.isBusy = true
+    presentation.consumeFinishedSession(engine)
+    #expect(presentation.summary == nil)
+    #expect(engine.calls.isEmpty)
+  }
+
+  @Test func autoFinishedWalkIsOpenedOnlyFromItsToast() {
+    let id = UUID()
+    engine.lastFinishedSessionID = id
+    engine.notice = .autoFinished(sessionID: id)
+    presentation.consumeFinishedSession(engine)
+    #expect(presentation.summary == nil)
+    #expect(engine.lastFinishedSessionID == nil)
+
+    presentation.showSummary(of: .autoFinished(sessionID: id), engine)
+    #expect(presentation.summary == SummaryItem(id: id))
+    #expect(engine.notice == nil)
+  }
+
+  @Test func autoFinishNoticeForAnotherWalkDoesNotHideThisSummary() {
+    let id = UUID()
+    engine.lastFinishedSessionID = id
+    engine.notice = .autoFinished(sessionID: UUID())
+    presentation.consumeFinishedSession(engine)
+    #expect(presentation.summary == SummaryItem(id: id))
+  }
+
   // MARK: Notices
 
   @Test func noticeIsConsumedOnceAfterItWasShown() async {

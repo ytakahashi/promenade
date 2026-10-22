@@ -41,7 +41,7 @@ final class AppEnvironment {
   init(
     configuration: TrackingConfiguration = .default,
     makeContainer: @escaping @MainActor () throws -> ModelContainer = {
-      try ModelContainerFactory.make()
+      try AppEnvironment.makeContainer(arguments: ProcessInfo.processInfo.arguments)
     },
     makeSensors: @escaping @MainActor () throws -> AppSensors = {
       try AppSensors.make(arguments: ProcessInfo.processInfo.arguments)
@@ -140,9 +140,26 @@ final class AppEnvironment {
       dependencies = AppDependencies(
         container: try makeContainer(), sensors: sensors, configuration: configuration)
       state = .waitingForLaunch
+    } catch let failure as StartupFailure {
+      state = .failed(failure)
     } catch {
       state = .failed(StartupFailure(kind: .storage, detail: error.localizedDescription))
     }
+  }
+
+  /// Debug builds can store walks at `-StoreURL` so UI tests never touch the regular store. An
+  /// invalid option is reported rather than silently falling back to the regular store.
+  static func makeContainer(arguments: [String]) throws -> ModelContainer {
+    #if DEBUG
+      let url: URL?
+      do {
+        url = try StoreLaunchOptions.parse(arguments)
+      } catch {
+        throw StartupFailure(kind: .storeArguments, detail: error.localizedDescription)
+      }
+      if let url { return try ModelContainerFactory.make(url: url) }
+    #endif
+    return try ModelContainerFactory.make()
   }
 }
 

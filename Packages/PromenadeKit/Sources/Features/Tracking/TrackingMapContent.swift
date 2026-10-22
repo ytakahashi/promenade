@@ -11,7 +11,13 @@ struct TrackingMapContent {
   let segments: [Segment]
 
   init(route: LiveRoute?) {
-    segments = (route?.segments ?? []).enumerated().compactMap { index, segment in
+    self.init(segments: route?.segments ?? [])
+  }
+
+  /// One accumulator per recorded segment, in order, so positions stay stable as segments are
+  /// appended.
+  init(segments accumulators: [RouteFilter.Accumulator]) {
+    segments = accumulators.enumerated().compactMap { index, segment in
       // Each polyline owns one segment. Joining points across pauses would invent route geometry.
       guard segment.acceptedPoints.count >= 2 else { return nil }
       return Segment(

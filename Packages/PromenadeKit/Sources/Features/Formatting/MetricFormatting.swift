@@ -9,7 +9,8 @@ struct MetricFormatting {
   }
 
   // This is a presentation threshold; it must not change persisted distance or route filtering.
-  static let paceDisplayMinimumDistance: Double = 50
+  // Pace and speed over shorter distances are dominated by GPS noise.
+  static let rateDisplayMinimumDistance: Double = 50
   let locale: Locale
 
   var distanceUnit: DistanceUnit {
@@ -56,7 +57,7 @@ struct MetricFormatting {
   }
 
   func paceSeconds(secondsPerMeter: Double?, distance: Double) -> Int? {
-    guard distance.isFinite, distance >= Self.paceDisplayMinimumDistance,
+    guard distance.isFinite, distance >= Self.rateDisplayMinimumDistance,
       let secondsPerMeter, secondsPerMeter.isFinite, secondsPerMeter > 0
     else { return nil }
     // Round total seconds first so a minute boundary can never produce a ":60" suffix.
@@ -83,6 +84,44 @@ struct MetricFormatting {
     case .kilometers: return String(localized: "\(time) per kilometer", bundle: .module)
     case .miles: return String(localized: "\(time) per mile", bundle: .module)
     }
+  }
+
+  func speed(metersPerSecond: Double?, distance: Double) -> String {
+    speed(metersPerSecond, distance: distance, width: .abbreviated) ?? "--"
+  }
+
+  func speedAccessibility(metersPerSecond: Double?, distance: Double) -> String {
+    speed(metersPerSecond, distance: distance, width: .wide)
+      ?? String(localized: "Not available", bundle: .module)
+  }
+
+  /// Formats `date` in the time zone it was recorded in. The zone is named only when it differs
+  /// from the device's, where the wall-clock time alone would be misread.
+  func dateTime(_ date: Date, in timeZone: TimeZone, deviceTimeZone: TimeZone = .current) -> String
+  {
+    var style = Date.FormatStyle(date: .abbreviated, time: .shortened, locale: locale)
+    style.timeZone = timeZone
+    let text = date.formatted(style)
+    guard timeZone.identifier != deviceTimeZone.identifier else { return text }
+    return "\(text) \(timeZone.abbreviation(for: date) ?? timeZone.identifier)"
+  }
+
+  private func speed(
+    _ metersPerSecond: Double?, distance: Double,
+    width: Measurement<UnitSpeed>.FormatStyle.UnitWidth
+  ) -> String? {
+    guard distance.isFinite, distance >= Self.rateDisplayMinimumDistance,
+      let metersPerSecond, metersPerSecond.isFinite, metersPerSecond > 0
+    else { return nil }
+    let unit: UnitSpeed = distanceUnit == .kilometers ? .kilometersPerHour : .milesPerHour
+    return Measurement(value: metersPerSecond, unit: UnitSpeed.metersPerSecond)
+      .converted(to: unit)
+      .formatted(
+        .measurement(
+          width: width, usage: .asProvided,
+          numberFormatStyle: .number.precision(.fractionLength(1))
+        )
+        .locale(locale))
   }
 
   private func wholeSeconds(_ value: Double, rounding: FloatingPointRoundingRule) -> Int? {

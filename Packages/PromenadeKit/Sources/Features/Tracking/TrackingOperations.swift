@@ -12,6 +12,7 @@ protocol TrackingOperations: AnyObject {
   var operationFailure: TrackingFailure? { get }
   var isBusy: Bool { get }
   var notice: TrackingNotice? { get }
+  var lastFinishedSessionID: UUID? { get }
   func start() async
   func requestPause(at date: Date) -> Bool
   func requestFinish(at date: Date) -> Bool
@@ -23,6 +24,7 @@ protocol TrackingOperations: AnyObject {
   func flush() async
   func clearFailure()
   func clearNotice()
+  func clearLastFinishedSession()
 }
 
 extension TrackingEngine: TrackingOperations {

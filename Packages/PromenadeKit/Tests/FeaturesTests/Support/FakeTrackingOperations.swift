@@ -17,6 +17,7 @@ final class FakeTrackingOperations: TrackingOperations {
     case flush
     case clearFailure
     case clearNotice
+    case clearLastFinishedSession
   }
 
   enum Outcome { case success, failure, ignored }
@@ -28,6 +29,7 @@ final class FakeTrackingOperations: TrackingOperations {
   var operationFailure: TrackingFailure?
   var isBusy = false
   var notice: TrackingNotice?
+  var lastFinishedSessionID: UUID?
   var acceptsRequests = true
   var confirmOutcome = Outcome.success
   var resumeOutcome = Outcome.success
@@ -100,6 +102,11 @@ final class FakeTrackingOperations: TrackingOperations {
   func clearNotice() {
     calls.append(.clearNotice)
     notice = nil
+  }
+
+  func clearLastFinishedSession() {
+    calls.append(.clearLastFinishedSession)
+    lastFinishedSessionID = nil
   }
 
   func clearFailure() {

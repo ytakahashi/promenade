@@ -70,4 +70,28 @@ struct MetricFormattingTests {
     #expect(metric.paceAccessibility(secondsPerMeter: 0.6, distance: 50).contains("per kilometer"))
     #expect(metric.paceAccessibility(secondsPerMeter: nil, distance: 50) == "Not available")
   }
+
+  @Test func speedUsesTheSelectedUnitAndThreshold() {
+    let metric = MetricFormatting(locale: Locale(identifier: "en_US@measure=metric"))
+    let miles = MetricFormatting(locale: Locale(identifier: "en_US"))
+    #expect(metric.speed(metersPerSecond: 1.25, distance: 50) == "4.5 km/h")
+    #expect(miles.speed(metersPerSecond: 1.25, distance: 50) == "2.8 mph")
+    #expect(metric.speed(metersPerSecond: 1.25, distance: 49.999) == "--")
+    #expect(metric.speed(metersPerSecond: nil, distance: 1000) == "--")
+    #expect(metric.speed(metersPerSecond: .infinity, distance: 1000) == "--")
+    #expect(metric.speedAccessibility(metersPerSecond: nil, distance: 1000) == "Not available")
+  }
+
+  @Test func dateTimeUsesTheRecordedTimeZone() throws {
+    let formatting = MetricFormatting(locale: Locale(identifier: "en_US"))
+    let date = Date(timeIntervalSince1970: 1_767_225_600)  // 2026-01-01 00:00 UTC
+    let tokyo = try #require(TimeZone(identifier: "Asia/Tokyo"))
+    let sameZone = formatting.dateTime(date, in: tokyo, deviceTimeZone: tokyo)
+    #expect(sameZone.contains("9:00"))
+    #expect(!sameZone.contains("GMT"))
+    let otherZone = formatting.dateTime(
+      date, in: tokyo, deviceTimeZone: try #require(TimeZone(identifier: "Europe/London")))
+    #expect(otherZone.hasPrefix(sameZone))
+    #expect(otherZone.count > sameZone.count)
+  }
 }

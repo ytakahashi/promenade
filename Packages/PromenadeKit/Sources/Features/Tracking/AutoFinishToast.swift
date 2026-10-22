@@ -2,6 +2,7 @@ import SwiftUI
 
 /// Tells the user that launch recovery finished a stale walk on its own.
 struct AutoFinishToast: View {
+  let view: () -> Void
   let dismiss: () -> Void
 
   static let displayDuration: Duration = .seconds(6)
@@ -23,6 +24,9 @@ struct AutoFinishToast: View {
         .fixedSize(horizontal: false, vertical: true)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
+      Button(action: view) { Text("View", bundle: .module) }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
       Button(action: dismiss) {
         Image(systemName: "xmark")
       }
@@ -31,7 +35,7 @@ struct AutoFinishToast: View {
     .padding(12)
     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     .shadow(radius: 4, y: 2)
-    .accessibilityElement(children: .combine)
+    .accessibilityElement(children: .contain)
     .onAppear {
       AccessibilityNotification.Announcement(
         String(localized: "Previous Walk Finished", bundle: .module)
@@ -41,5 +45,5 @@ struct AutoFinishToast: View {
 }
 
 #Preview {
-  AutoFinishToast(dismiss: {}).padding()
+  AutoFinishToast(view: {}, dismiss: {}).padding()
 }

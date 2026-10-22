@@ -8,6 +8,7 @@ nonisolated public enum StartupFailureKind: Sendable, Equatable {
   case replayArguments
   case replayFile
   case replayData
+  case storeArguments
 }
 
 public struct StartupFailureView: View {
@@ -44,6 +45,7 @@ public struct StartupFailureView: View {
     case .replayArguments: Text("Invalid Replay Options", bundle: .module)
     case .replayFile: Text("Unable to Read Replay File", bundle: .module)
     case .replayData: Text("Invalid Replay Data", bundle: .module)
+    case .storeArguments: Text("Invalid Storage Options", bundle: .module)
     }
   }
 }

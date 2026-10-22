@@ -8,23 +8,39 @@ struct TrackingMapView: View {
 
   var body: some View {
     // Do not read record (including session.id) here: timing-only changes must not rebuild the map.
-    RouteMapView(content: TrackingMapContent(route: session?.route), locationAccess: locationAccess)
+    RouteMapView(
+      content: TrackingMapContent(route: session?.route), camera: .followsUser(locationAccess)
+    )
+    .accessibilityIdentifier("tracking.map")
   }
 }
 
 struct RouteMapView: View {
+  enum CameraPolicy: Equatable {
+    /// Follows the device until the user moves the map. The device location is shown only when
+    /// access is already usable.
+    case followsUser(LocationAccessState)
+    /// Frames the whole route. A saved walk is unrelated to where the device is now, so the
+    /// device location is neither shown nor followed.
+    case fitsRoute
+  }
+
   let content: TrackingMapContent
-  let locationAccess: LocationAccessState
+  let camera: CameraPolicy
   @State private var position: MapCameraPosition
   @Namespace private var mapScope
 
   init(
-    content: TrackingMapContent, locationAccess: LocationAccessState,
-    initialPosition: MapCameraPosition = .userLocation(followsHeading: false, fallback: .automatic)
+    content: TrackingMapContent, camera: CameraPolicy, initialPosition: MapCameraPosition? = nil
   ) {
     self.content = content
-    self.locationAccess = locationAccess
-    _position = State(initialValue: initialPosition)
+    self.camera = camera
+    let defaultPosition: MapCameraPosition =
+      switch camera {
+      case .followsUser: .userLocation(followsHeading: false, fallback: .automatic)
+      case .fitsRoute: .automatic
+      }
+    _position = State(initialValue: initialPosition ?? defaultPosition)
   }
 
   var body: some View {
@@ -41,21 +57,21 @@ struct RouteMapView: View {
       MapScaleView(scope: mapScope)
     }
     .mapScope(mapScope)
-    .accessibilityIdentifier("tracking.map")
   }
 
   private var showsCurrentLocation: Bool {
+    guard case .followsUser(let access) = camera else { return false }
     // Viewing the idle map must not request permission before an explicit recording action.
-    locationAccess == .available || locationAccess == .fullAccuracyRequired
+    return access == .available || access == .fullAccuracyRequired
   }
 }
 
 #if DEBUG
   #Preview("Separate segments") {
-    RouteMapView(content: .preview(), locationAccess: .denied, initialPosition: .automatic)
+    RouteMapView(content: .preview(), camera: .fitsRoute)
   }
 
   #Preview("No route") {
-    RouteMapView(content: TrackingMapContent(route: nil), locationAccess: .notDetermined)
+    RouteMapView(content: TrackingMapContent(route: nil), camera: .followsUser(.notDetermined))
   }
 #endif

@@ -1,5 +1,4 @@
 import Domain
-import Features
 import Foundation
 import Persistence
 import SwiftData
@@ -8,6 +7,7 @@ import Testing
 import Tracking
 import UIKit
 
+@testable import Features
 @testable import Promenade
 @testable import Sensors
 
@@ -240,11 +240,34 @@ struct AppEnvironmentTests {
     let start = Date()
     try await dependencies.store.createSession(id: id, startDate: start, timeZone: .current)
     #expect(try read(id)?.state == .recording)
-    let end = start.addingTimeInterval(10)
+    let points = (1...3).map { index in
+      TrackPoint(
+        timestamp: start.addingTimeInterval(Double(index) * 5),
+        // About 7 m every 5 seconds: beyond the 5 m accuracy and at a walking speed, so the
+        // route filter accepts every point.
+        coordinate: Coordinate(latitude: 35 + Double(index) * 0.000063, longitude: 139),
+        horizontalAccuracy: 5, altitude: 0, verticalAccuracy: -1, speed: -1, speedAccuracy: -1,
+        course: -1)
+    }
+    for point in points { try await dependencies.store.append(point, sessionID: id) }
+    let end = start.addingTimeInterval(20)
     try await dependencies.store.finish(sessionID: id, at: end)
+
+    // Finishing saves buffered points; a fresh read context must see them with the final state.
     let finished = try #require(try read(id))
     #expect(finished.state == .finished)
     #expect(finished.endDate == end)
+    #expect(finished.segments.last?.points.last == points.last)
+    let model = SessionSummaryModel(
+      sessionID: id, route: environment.configuration.route, read: read)
+    model.load()
+    guard case .loaded(let summary) = model.state else {
+      Issue.record("Expected a loaded summary")
+      return
+    }
+    #expect(summary.metrics.timing.walking == 20)
+    #expect(summary.metrics.distance > 10)
+    #expect(summary.map.segments.first?.coordinates.count == 3)
     #expect(try read(UUID()) == nil)
   }
 
@@ -300,6 +323,40 @@ struct AppEnvironmentTests {
     environment.didBecomeActive()
     while environment.locationAccess != .servicesDisabled { await Task.yield() }
   }
+
+  #if DEBUG
+    @Test func invalidStoreOptionNeverFallsBackToTheRegularStore() {
+      let environment = AppEnvironment(
+        makeContainer: {
+          try AppEnvironment.makeContainer(arguments: ["-StoreURL", "walks.store"])
+        },
+        makeSensors: {
+          AppSensors(provider: IdleProvider(), session: StubLocationSession(), authorization: nil)
+        })
+      guard case .failed(let failure) = environment.state else {
+        Issue.record("Expected a storage option failure")
+        return
+      }
+      #expect(failure.kind == .storeArguments)
+      #expect(environment.dependencies == nil)
+    }
+
+    @Test func storeOptionKeepsWalksInItsOwnFile() async throws {
+      let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString)
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+      defer { try? FileManager.default.removeItem(at: directory) }
+      let arguments = ["-StoreURL", directory.appendingPathComponent("walks.store").path]
+      let id = UUID()
+      do {
+        let container = try AppEnvironment.makeContainer(arguments: arguments)
+        let store = SwiftDataTrackingStore(container: container, configuration: .default)
+        try await store.createSession(id: id, startDate: Date(), timeZone: .current)
+      }
+      let reopened = try AppEnvironment.makeContainer(arguments: arguments)
+      #expect(try AppDependencies.readUnfinishedSessions(container: reopened).map(\.id) == [id])
+    }
+  #endif
 
   #if DEBUG
     @Test func replayFailuresNeverFallBackToRealGPS() throws {
