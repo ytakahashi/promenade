@@ -6,13 +6,21 @@ final class PromenadeUITestsLaunchTests: XCTestCase {
     true
   }
 
+  private var store: UITestStore!
+
   override func setUpWithError() throws {
     continueAfterFailure = false
+    store = try UITestStore()
+  }
+
+  override func tearDownWithError() throws {
+    store.remove()
   }
 
   @MainActor
   func testLaunch() throws {
     let app = XCUIApplication()
+    app.launchArguments = store.launchArguments
     app.launch()
 
     // Insert steps here to perform after app launch but before taking a screenshot,

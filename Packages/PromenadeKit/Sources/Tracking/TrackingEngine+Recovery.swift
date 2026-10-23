@@ -12,6 +12,10 @@ extension TrackingEngine {
       return Task {}
     }
     recoveryScheduled = true
+    // Report busy from now, not from when the queued work starts: `start()` already rejects taps
+    // while recovery is scheduled, and the UI must not offer Start in between. The queued work
+    // always runs, even when cancelled, and clears both flags.
+    isBusy = true
     let ordered = sessions.filter { $0.state != .finished }.sorted {
       if $0.startDate == $1.startDate { return $0.id.uuidString < $1.id.uuidString }
       return $0.startDate > $1.startDate

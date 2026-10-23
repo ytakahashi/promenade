@@ -14,6 +14,18 @@ struct RecoveryCoordinatorTests {
     #expect(h.session.activations == 0)
   }
 
+  @Test func scheduledRecoveryReportsBusyUntilItCompletes() async throws {
+    let h = try TrackingHarness()
+    let task = try h.recover([], launch: .foreground)
+    // Start is rejected from this point, so the UI must already see the engine as busy.
+    #expect(h.engine.isBusy)
+    #expect(!h.engine.requestPause(at: date(0)))
+    await task.value
+    #expect(!h.engine.isBusy)
+    await h.engine.start()
+    #expect(h.engine.liveSession != nil)
+  }
+
   @Test func pausedRecoveryBeginsSynchronouslyButDoesNotSubscribe() async throws {
     let h = try TrackingHarness()
     let record = try await h.seed(paused: true)

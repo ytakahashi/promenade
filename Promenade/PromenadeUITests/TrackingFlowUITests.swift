@@ -1,19 +1,17 @@
 import XCTest
 
-/// Recording flows driven by Replay against a store of their own, so the regular store is never
-/// read or reset.
+/// Recording flows driven by Replay against a store of their own.
 final class TrackingFlowUITests: XCTestCase {
-  private var directory: URL!
+  private var store: UITestStore!
 
   override func setUpWithError() throws {
     continueAfterFailure = false
-    directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    try Self.writeReplay(to: directory.appendingPathComponent("walk.gpx"))
+    store = try UITestStore()
+    try Self.writeReplay(to: store.directory.appendingPathComponent("walk.gpx"))
   }
 
   override func tearDownWithError() throws {
-    try? FileManager.default.removeItem(at: directory)
+    store.remove()
   }
 
   @MainActor
@@ -77,10 +75,9 @@ final class TrackingFlowUITests: XCTestCase {
   @MainActor
   private func launch() -> XCUIApplication {
     let app = XCUIApplication()
-    app.launchArguments = [
-      "-ReplayGPX", directory.appendingPathComponent("walk.gpx").path,
-      "-StoreURL", directory.appendingPathComponent("walks.store").path,
-    ]
+    app.launchArguments =
+      ["-ReplayGPX", store.directory.appendingPathComponent("walk.gpx").path]
+      + store.launchArguments
     app.launch()
     return app
   }
