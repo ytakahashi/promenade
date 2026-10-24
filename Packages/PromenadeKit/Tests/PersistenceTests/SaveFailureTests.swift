@@ -19,24 +19,26 @@ struct SaveFailureTests {
     try await store.createSession(id: id, startDate: Fixtures.start, timeZone: Fixtures.timeZone)
     try await store.append(Fixtures.point(1), sessionID: id)
     if transition == .resume {
-      try await store.pause(sessionID: id, at: Fixtures.date(10))
+      try await store.pause(sessionID: id, at: Fixtures.date(10), steps: nil)
     } else if transition == .open {
-      try await store.interruptSegment(sessionID: id, at: Fixtures.date(10))
+      try await store.interruptSegment(sessionID: id, at: Fixtures.date(10), steps: nil)
     }
     let before = try await store.loadSession(id: id)
     let persistedBefore = try Fixtures.record(id, in: container)
     saves.failNext()
     await #expect(throws: SaveController.Failure.injected) {
       switch transition {
-      case .pause: try await store.pause(sessionID: id, at: Fixtures.date(20))
+      case .pause: try await store.pause(sessionID: id, at: Fixtures.date(20), steps: nil)
       case .resume: try await store.resume(sessionID: id, at: Fixtures.date(20))
       case .split:
         try await store.splitSegment(
           sessionID: id, closingAt: Fixtures.date(20), reason: .signalGap,
+          steps: nil,
           nextStart: Fixtures.date(30))
-      case .interrupt: try await store.interruptSegment(sessionID: id, at: Fixtures.date(20))
+      case .interrupt:
+        try await store.interruptSegment(sessionID: id, at: Fixtures.date(20), steps: nil)
       case .open: try await store.openSegment(sessionID: id, at: Fixtures.date(20))
-      case .finish: try await store.finish(sessionID: id, at: Fixtures.date(20))
+      case .finish: try await store.finish(sessionID: id, at: Fixtures.date(20), steps: nil)
       }
     }
     #expect(try Fixtures.record(id, in: container) == persistedBefore)
@@ -51,15 +53,17 @@ struct SaveFailureTests {
     }
     // The caller can explicitly retry the failed transition.
     switch transition {
-    case .pause: try await store.pause(sessionID: id, at: Fixtures.date(20))
+    case .pause: try await store.pause(sessionID: id, at: Fixtures.date(20), steps: nil)
     case .resume: try await store.resume(sessionID: id, at: Fixtures.date(20))
     case .split:
       try await store.splitSegment(
         sessionID: id, closingAt: Fixtures.date(20), reason: .signalGap,
+        steps: nil,
         nextStart: Fixtures.date(30))
-    case .interrupt: try await store.interruptSegment(sessionID: id, at: Fixtures.date(20))
+    case .interrupt:
+      try await store.interruptSegment(sessionID: id, at: Fixtures.date(20), steps: nil)
     case .open: try await store.openSegment(sessionID: id, at: Fixtures.date(20))
-    case .finish: try await store.finish(sessionID: id, at: Fixtures.date(20))
+    case .finish: try await store.finish(sessionID: id, at: Fixtures.date(20), steps: nil)
     }
     #expect(try Fixtures.record(id, in: container) != before)
   }
@@ -158,7 +162,7 @@ struct SaveFailureTests {
     // The rollback of the failed pause also discards the unsaved points still in the context.
     saves.failNext()
     await #expect(throws: SaveController.Failure.injected) {
-      try await store.pause(sessionID: id, at: Fixtures.date(20))
+      try await store.pause(sessionID: id, at: Fixtures.date(20), steps: nil)
     }
     try await store.flush()
     let record = try Fixtures.record(id, in: container)
@@ -173,16 +177,16 @@ struct SaveFailureTests {
     let id = UUID()
     try await store.createSession(id: id, startDate: Fixtures.start, timeZone: Fixtures.timeZone)
     try await store.append(Fixtures.point(1), sessionID: id)
-    try await store.interruptSegment(sessionID: id, at: Fixtures.date(1))
+    try await store.interruptSegment(sessionID: id, at: Fixtures.date(1), steps: nil)
     let before = try await store.loadSession(id: id)
     saves.failNext()
     await #expect(throws: SaveController.Failure.injected) {
-      try await store.pause(sessionID: id, at: Fixtures.date(10))
+      try await store.pause(sessionID: id, at: Fixtures.date(10), steps: nil)
     }
     try await store.flush()
     #expect(try await store.loadSession(id: id) == before)
     #expect(try Fixtures.record(id, in: container) == before)
-    try await store.pause(sessionID: id, at: Fixtures.date(10))
+    try await store.pause(sessionID: id, at: Fixtures.date(10), steps: nil)
     let record = try Fixtures.record(id, in: container)
     #expect(record.state == .paused)
     #expect(record.segments.count == 2)

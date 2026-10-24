@@ -71,7 +71,7 @@ struct TrackingStoreTests {
     try await store.createSession(id: id, startDate: Fixtures.start, timeZone: Fixtures.timeZone)
     #expect(saves.count == 1)
     try await store.append(Fixtures.point(10, north: 10), sessionID: id)
-    try await store.pause(sessionID: id, at: Fixtures.date(20))
+    try await store.pause(sessionID: id, at: Fixtures.date(20), steps: nil)
     #expect(saves.count == 2)
     let paused = try Fixtures.record(id, in: container)
     #expect(paused.state == .paused)
@@ -85,7 +85,7 @@ struct TrackingStoreTests {
     #expect(resumed.segments.map(\.index) == [0, 1])
     #expect(resumed.segments[1].startDate == Fixtures.date(40))
     #expect(resumed.hasOpenSegment)
-    try await store.finish(sessionID: id, at: Fixtures.date(60))
+    try await store.finish(sessionID: id, at: Fixtures.date(60), steps: nil)
     #expect(saves.count == 4)
     let finished = try Fixtures.record(id, in: container)
     #expect(finished.state == .finished)
@@ -102,7 +102,8 @@ struct TrackingStoreTests {
     try await store.createSession(id: id, startDate: Fixtures.start, timeZone: Fixtures.timeZone)
     try await store.append(Fixtures.point(10), sessionID: id)
     try await store.splitSegment(
-      sessionID: id, closingAt: Fixtures.date(10), reason: reason, nextStart: Fixtures.date(80))
+      sessionID: id, closingAt: Fixtures.date(10), reason: reason, steps: nil,
+      nextStart: Fixtures.date(80))
     #expect(saves.count == 2)
     let record = try Fixtures.record(id, in: container)
     #expect(record.state == .recording)
@@ -119,7 +120,7 @@ struct TrackingStoreTests {
     let id = UUID()
     try await store.createSession(id: id, startDate: Fixtures.start, timeZone: Fixtures.timeZone)
     try await store.append(Fixtures.point(10), sessionID: id)
-    try await store.interruptSegment(sessionID: id, at: Fixtures.date(10))
+    try await store.interruptSegment(sessionID: id, at: Fixtures.date(10), steps: nil)
     #expect(saves.count == 2)
     let interrupted = try Fixtures.record(id, in: container)
     #expect(interrupted.state == .recording)
@@ -138,11 +139,12 @@ struct TrackingStoreTests {
     try await first.append(Fixtures.point(0), sessionID: id)
     try await first.append(Fixtures.point(10, north: 10), sessionID: id)
     try await first.splitSegment(
-      sessionID: id, closingAt: Fixtures.date(10), reason: .signalGap, nextStart: Fixtures.date(80))
+      sessionID: id, closingAt: Fixtures.date(10), reason: .signalGap, steps: nil,
+      nextStart: Fixtures.date(80))
     let store = SwiftDataTrackingStore(container: container)
     try await store.append(Fixtures.point(80, north: 1000), sessionID: id)
     try await store.append(Fixtures.point(90, north: 1020), sessionID: id)
-    try await store.finish(sessionID: id, at: Fixtures.date(100))
+    try await store.finish(sessionID: id, at: Fixtures.date(100), steps: nil)
     try Fixtures.read(id, in: container) {
       #expect(abs($0.distance - 30) < 1e-6)
       #expect($0.walkingDuration == 100)
@@ -161,11 +163,11 @@ struct TrackingStoreTests {
     let id = UUID()
     try await store.createSession(id: id, startDate: Fixtures.start, timeZone: Fixtures.timeZone)
     if reason == .paused {
-      try await store.pause(sessionID: id, at: Fixtures.date(20))
+      try await store.pause(sessionID: id, at: Fixtures.date(20), steps: nil)
     } else {
-      try await store.interruptSegment(sessionID: id, at: Fixtures.date(20))
+      try await store.interruptSegment(sessionID: id, at: Fixtures.date(20), steps: nil)
     }
-    try await store.finish(sessionID: id, at: Fixtures.date(60))
+    try await store.finish(sessionID: id, at: Fixtures.date(60), steps: nil)
     try Fixtures.read(id, in: container) {
       #expect($0.segments.count == 1)
       #expect($0.segments[0].endReasonRaw == reason.rawValue)
@@ -205,24 +207,25 @@ struct TrackingStoreTests {
     }
     await #expect(throws: PersistenceError.invalidSplitReason) {
       try await store.splitSegment(
-        sessionID: id, closingAt: Fixtures.date(10), reason: .paused, nextStart: Fixtures.date(20))
+        sessionID: id, closingAt: Fixtures.date(10), reason: .paused, steps: nil,
+        nextStart: Fixtures.date(20))
     }
-    try await store.interruptSegment(sessionID: id, at: Fixtures.date(10))
+    try await store.interruptSegment(sessionID: id, at: Fixtures.date(10), steps: nil)
     await #expect(throws: PersistenceError.noOpenSegment) {
-      try await store.interruptSegment(sessionID: id, at: Fixtures.date(20))
+      try await store.interruptSegment(sessionID: id, at: Fixtures.date(20), steps: nil)
     }
     await #expect(throws: PersistenceError.noOpenSegment) {
       try await store.append(Fixtures.point(20), sessionID: id)
     }
-    try await store.finish(sessionID: id, at: Fixtures.date(20))
+    try await store.finish(sessionID: id, at: Fixtures.date(20), steps: nil)
     await #expect(throws: PersistenceError.invalidState) {
       try await store.openSegment(sessionID: id, at: Fixtures.date(30))
     }
     await #expect(throws: PersistenceError.invalidState) {
-      try await store.finish(sessionID: id, at: Fixtures.date(30))
+      try await store.finish(sessionID: id, at: Fixtures.date(30), steps: nil)
     }
     await #expect(throws: PersistenceError.invalidState) {
-      try await store.pause(sessionID: id, at: Fixtures.date(30))
+      try await store.pause(sessionID: id, at: Fixtures.date(30), steps: nil)
     }
   }
 
@@ -241,17 +244,18 @@ struct TrackingStoreTests {
       }
     }
     await #expect(throws: PersistenceError.invalidDate) {
-      try await store.pause(sessionID: id, at: Fixtures.date(9))
+      try await store.pause(sessionID: id, at: Fixtures.date(9), steps: nil)
     }
     await #expect(throws: PersistenceError.invalidDate) {
       try await store.splitSegment(
-        sessionID: id, closingAt: Fixtures.date(10), reason: .signalGap, nextStart: Fixtures.date(9)
+        sessionID: id, closingAt: Fixtures.date(10), reason: .signalGap, steps: nil,
+        nextStart: Fixtures.date(9)
       )
     }
     await #expect(throws: PersistenceError.invalidDate) {
-      try await store.finish(sessionID: id, at: Fixtures.date(9))
+      try await store.finish(sessionID: id, at: Fixtures.date(9), steps: nil)
     }
-    try await store.pause(sessionID: id, at: Fixtures.date(10))
+    try await store.pause(sessionID: id, at: Fixtures.date(10), steps: nil)
     await #expect(throws: PersistenceError.invalidDate) {
       try await store.resume(sessionID: id, at: Fixtures.date(9))
     }

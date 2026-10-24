@@ -15,6 +15,15 @@ extension WalkingSession {
   }
 }
 
+extension WalkingSession {
+  /// Uses the saved metrics only, so it must not touch `segments`.
+  func listItem() -> SessionListItem {
+    SessionListItem(
+      id: id, startDate: startDate, timeZoneIdentifier: timeZoneIdentifier, distance: distance,
+      walkingDuration: walkingDuration, steps: steps)
+  }
+}
+
 extension Segment {
   func record() throws -> SegmentRecord {
     let reason: SegmentEndReason?

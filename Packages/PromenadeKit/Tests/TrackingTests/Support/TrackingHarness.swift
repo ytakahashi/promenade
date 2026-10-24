@@ -48,9 +48,9 @@ final class TrackingHarness {
     try await store.createSession(id: id, startDate: date(start), timeZone: .current)
     try await store.append(point(start + 1), sessionID: id)
     if paused {
-      try await store.pause(sessionID: id, at: date(start + 10))
+      try await store.pause(sessionID: id, at: date(start + 10), steps: nil)
     } else if closed {
-      try await store.interruptSegment(sessionID: id, at: date(start + 1))
+      try await store.interruptSegment(sessionID: id, at: date(start + 1), steps: nil)
     }
     return try #require(try await store.loadSession(id: id))
   }
@@ -123,7 +123,7 @@ actor TestGate {
 
 actor ControlledStore: TrackingStore {
   enum Operation: Sendable, Equatable {
-    case create, append, pause, resume, split, interrupt, open, finish, flush, load
+    case create, append, pause, resume, split, interrupt, open, finish, discard, flush, load
   }
   enum Failure: Error { case injected }
   let base: SwiftDataTrackingStore
@@ -167,32 +167,37 @@ actor ControlledStore: TrackingStore {
     }
     return result
   }
-  func pause(sessionID: UUID, at date: Date) async throws {
+  func pause(sessionID: UUID, at date: Date, steps: Int?) async throws {
     try await before(.pause)
-    try await base.pause(sessionID: sessionID, at: date)
+    try await base.pause(sessionID: sessionID, at: date, steps: steps)
   }
   func resume(sessionID: UUID, at date: Date) async throws {
     try await before(.resume)
     try await base.resume(sessionID: sessionID, at: date)
   }
-  func splitSegment(sessionID: UUID, closingAt: Date, reason: SegmentEndReason, nextStart: Date)
-    async throws
-  {
+  func splitSegment(
+    sessionID: UUID, closingAt: Date, reason: SegmentEndReason, steps: Int?, nextStart: Date
+  ) async throws {
     try await before(.split)
     try await base.splitSegment(
-      sessionID: sessionID, closingAt: closingAt, reason: reason, nextStart: nextStart)
+      sessionID: sessionID, closingAt: closingAt, reason: reason, steps: steps,
+      nextStart: nextStart)
   }
-  func interruptSegment(sessionID: UUID, at date: Date) async throws {
+  func interruptSegment(sessionID: UUID, at date: Date, steps: Int?) async throws {
     try await before(.interrupt)
-    try await base.interruptSegment(sessionID: sessionID, at: date)
+    try await base.interruptSegment(sessionID: sessionID, at: date, steps: steps)
   }
   func openSegment(sessionID: UUID, at date: Date) async throws {
     try await before(.open)
     try await base.openSegment(sessionID: sessionID, at: date)
   }
-  func finish(sessionID: UUID, at date: Date) async throws {
+  func finish(sessionID: UUID, at date: Date, steps: Int?) async throws {
     try await before(.finish)
-    try await base.finish(sessionID: sessionID, at: date)
+    try await base.finish(sessionID: sessionID, at: date, steps: steps)
+  }
+  func discard(sessionID: UUID) async throws {
+    try await before(.discard)
+    try await base.discard(sessionID: sessionID)
   }
   func flush() async throws {
     try await before(.flush)

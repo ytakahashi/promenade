@@ -4,7 +4,7 @@ import SwiftData
 
 // Conforms to `ModelActor` manually instead of using `@ModelActor`: the macro adds a public
 // `init(modelContainer:)` that would bypass the context setup below.
-public actor SwiftDataTrackingStore: TrackingStore, ModelActor {
+public actor SwiftDataTrackingStore: TrackingStore, SessionDeleting, ModelActor {
   public nonisolated let modelContainer: ModelContainer
   public nonisolated let modelExecutor: any ModelExecutor
   private let configuration: TrackingConfiguration
@@ -71,7 +71,7 @@ public actor SwiftDataTrackingStore: TrackingStore, ModelActor {
     }
   }
 
-  public func pause(sessionID: UUID, at date: Date) throws {
+  public func pause(sessionID: UUID, at date: Date, steps: Int?) throws {
     try prepare()
     let (session, current) = try locate(sessionID)
     try requireState(session, .recording)
@@ -80,9 +80,10 @@ public actor SwiftDataTrackingStore: TrackingStore, ModelActor {
       // Access loss closes the recording segment. An empty paused segment preserves the preceding
       // interruption and starts rest time at the user's tap, in the same atomic save as the pause.
       let segment = addSegment(to: session, index: current.nextIndex, at: date)
-      close(segment, at: date, reason: .paused)
+      // Zero length, so no steps rather than unmeasured: nil would make the session total nil.
+      close(segment, at: date, reason: .paused, steps: 0)
     } else {
-      close(try openSegment(for: current), at: date, reason: .paused)
+      close(try openSegment(for: current), at: date, reason: .paused, steps: steps)
     }
     session.stateRaw = SessionState.paused.rawValue
     cursor = nil
@@ -100,7 +101,7 @@ public actor SwiftDataTrackingStore: TrackingStore, ModelActor {
   }
 
   public func splitSegment(
-    sessionID: UUID, closingAt: Date, reason: SegmentEndReason, nextStart: Date
+    sessionID: UUID, closingAt: Date, reason: SegmentEndReason, steps: Int?, nextStart: Date
   ) throws {
     try prepare()
     guard reason == .signalGap || reason == .interrupted else {
@@ -111,19 +112,19 @@ public actor SwiftDataTrackingStore: TrackingStore, ModelActor {
     let segment = try openSegment(for: current)
     try validate(closingAt, after: current.lastActivity)
     try validate(nextStart, after: closingAt)
-    close(segment, at: closingAt, reason: reason)
+    close(segment, at: closingAt, reason: reason, steps: steps)
     addSegment(to: session, index: current.nextIndex, at: nextStart)
     cursor = nil
     try commitTransition()
   }
 
-  public func interruptSegment(sessionID: UUID, at date: Date) throws {
+  public func interruptSegment(sessionID: UUID, at date: Date, steps: Int?) throws {
     try prepare()
     let (session, current) = try locate(sessionID)
     try requireState(session, .recording)
     let segment = try openSegment(for: current)
     try validate(date, after: current.lastActivity)
-    close(segment, at: date, reason: .interrupted)
+    close(segment, at: date, reason: .interrupted, steps: steps)
     cursor = nil
     try commitTransition()
   }
@@ -136,7 +137,7 @@ public actor SwiftDataTrackingStore: TrackingStore, ModelActor {
     try commitTransition()
   }
 
-  public func finish(sessionID: UUID, at date: Date) throws {
+  public func finish(sessionID: UUID, at date: Date, steps: Int?) throws {
     try prepare()
     let (session, current) = try locate(sessionID)
     guard session.stateRaw != SessionState.finished.rawValue else {
@@ -147,13 +148,17 @@ public actor SwiftDataTrackingStore: TrackingStore, ModelActor {
     var record = try session.record()
     record.endDate = date
     record.state = .finished
+    if current.openSegmentID != nil, !record.segments.isEmpty {
+      // The open segment is the last one; its steps must count toward the session total.
+      record.segments[record.segments.count - 1].steps = steps
+    }
     let metrics = SessionMetricsCalculator.metrics(
       for: record, filter: RouteFilter(configuration: configuration.route), asOf: date)
     if let id = current.openSegmentID {
       guard let segment = modelContext.model(for: id) as? Segment else {
         throw PersistenceError.invalidStructure
       }
-      close(segment, at: date, reason: .finished)
+      close(segment, at: date, reason: .finished, steps: steps)
     }
     session.endDate = date
     session.stateRaw = SessionState.finished.rawValue
@@ -163,6 +168,30 @@ public actor SwiftDataTrackingStore: TrackingStore, ModelActor {
     session.interruptionDuration = metrics.timing.interruption
     session.steps = metrics.steps
     session.derivedDataVersion = DerivedDataVersion.current
+    cursor = nil
+    try commitTransition()
+  }
+
+  public func discard(sessionID: UUID) throws {
+    try delete(sessionID, requiringFinished: false)
+  }
+
+  public func deleteSession(id: UUID) throws {
+    try delete(id, requiringFinished: true)
+  }
+
+  private func delete(_ id: UUID, requiringFinished: Bool) throws {
+    try prepare()
+    guard let session = try fetchSession(id: id) else { return }
+    if requiringFinished {
+      // History must never delete the walk being recorded; only discarding a walk may do that.
+      guard session.stateRaw == SessionState.finished.rawValue else {
+        throw PersistenceError.sessionNotFinished
+      }
+    }
+    // Unsaved points of the session are deleted with it by the cascade; a failed save rolls back
+    // and replays them like any other failed transition.
+    modelContext.delete(session)
     cursor = nil
     try commitTransition()
   }
@@ -243,9 +272,10 @@ public actor SwiftDataTrackingStore: TrackingStore, ModelActor {
     return segment
   }
 
-  private func close(_ segment: Segment, at date: Date, reason: SegmentEndReason) {
+  private func close(_ segment: Segment, at date: Date, reason: SegmentEndReason, steps: Int?) {
     segment.endDate = date
     segment.endReasonRaw = reason.rawValue
+    segment.steps = steps
   }
 
   private func insert(_ point: TrackPoint, into segment: Segment) {

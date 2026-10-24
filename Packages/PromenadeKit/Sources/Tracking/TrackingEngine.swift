@@ -122,7 +122,7 @@ public final class TrackingEngine {
       do {
         switch pending.kind {
         case .pause:
-          try await store.pause(sessionID: liveSession.id, at: pending.date)
+          try await store.pause(sessionID: liveSession.id, at: pending.date, steps: nil)
           liveSession.pause(at: pending.date)
           phase = .paused
           stopUpdates()
@@ -260,7 +260,7 @@ public final class TrackingEngine {
 
   func finish(at date: Date) async throws {
     guard let liveSession else { return }
-    try await store.finish(sessionID: liveSession.id, at: date)
+    try await store.finish(sessionID: liveSession.id, at: date, steps: nil)
     lastFinishedSessionID = liveSession.id
     self.liveSession = nil
     pendingTransition = nil
@@ -273,7 +273,7 @@ public final class TrackingEngine {
   func interruptIfOpen() async throws {
     guard let liveSession, liveSession.record.hasOpenSegment else { return }
     let date = liveSession.lastActivity
-    try await store.interruptSegment(sessionID: liveSession.id, at: date)
+    try await store.interruptSegment(sessionID: liveSession.id, at: date, steps: nil)
     liveSession.close(at: date, reason: .interrupted)
   }
 

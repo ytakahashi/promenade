@@ -14,9 +14,9 @@ struct MappingAndReaderTests {
     let id = UUID()
     try await store.createSession(id: id, startDate: Fixtures.start, timeZone: Fixtures.timeZone)
     #expect(try reader.unfinishedSession()?.state == .recording)
-    try await store.pause(sessionID: id, at: Fixtures.date(10))
+    try await store.pause(sessionID: id, at: Fixtures.date(10), steps: nil)
     #expect(try reader.session(id: id)?.state == .paused)
-    try await store.finish(sessionID: id, at: Fixtures.date(20))
+    try await store.finish(sessionID: id, at: Fixtures.date(20), steps: nil)
     #expect(try reader.session(id: id)?.state == .finished)
     #expect(try reader.session(id: id)?.endDate == Fixtures.date(20))
     #expect(try reader.unfinishedSession() == nil)
@@ -135,14 +135,13 @@ struct MappingAndReaderTests {
       LocationPoint(point: Fixtures.point(0)), LocationPoint(point: Fixtures.point(10, north: 10)),
     ]
     let second = Segment(index: 1, startDate: Fixtures.date(20))
-    second.steps = 20
     session.segments = [second, first]
     context.insert(session)
     try context.save()
     var configuration = TrackingConfiguration.default
     configuration.route.maxHorizontalAccuracy = 4
     let store = SwiftDataTrackingStore(container: container, configuration: configuration)
-    try await store.finish(sessionID: id, at: Fixtures.date(30))
+    try await store.finish(sessionID: id, at: Fixtures.date(30), steps: 20)
     try Fixtures.read(id, in: container) {
       #expect($0.steps == 30)
       #expect($0.distance == 0)

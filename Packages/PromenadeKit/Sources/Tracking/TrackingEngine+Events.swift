@@ -107,6 +107,7 @@ extension TrackingEngine {
           let closing = liveSession.lastActivity
           try await store.splitSegment(
             sessionID: liveSession.id, closingAt: closing, reason: .signalGap,
+            steps: nil,
             nextStart: point.timestamp)
           liveSession.close(at: closing, reason: .signalGap)
           liveSession.open(at: point.timestamp)
@@ -128,7 +129,8 @@ extension TrackingEngine {
       phase = .recording(.waitingForAccess(issue))
       do {
         if liveSession.record.hasOpenSegment {
-          try await store.interruptSegment(sessionID: liveSession.id, at: liveSession.lastActivity)
+          try await store.interruptSegment(
+            sessionID: liveSession.id, at: liveSession.lastActivity, steps: nil)
           liveSession.close(at: liveSession.lastActivity, reason: .interrupted)
         }
       } catch { report(error) }

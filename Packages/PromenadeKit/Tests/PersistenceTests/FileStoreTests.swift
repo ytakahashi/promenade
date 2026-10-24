@@ -19,7 +19,7 @@ struct FileStoreTests {
     #expect(restored.timeZoneIdentifier == "Asia/Tokyo")
     #expect(restored.segments[0].points == [Fixtures.point(0), Fixtures.point(10, north: 10)])
     try await store.append(Fixtures.point(20, north: 20), sessionID: id)
-    try await store.finish(sessionID: id, at: Fixtures.date(30))
+    try await store.finish(sessionID: id, at: Fixtures.date(30), steps: nil)
     try Fixtures.read(id, in: container) {
       #expect($0.stateRaw == "finished")
       #expect(abs($0.distance - 20) < 1e-6)

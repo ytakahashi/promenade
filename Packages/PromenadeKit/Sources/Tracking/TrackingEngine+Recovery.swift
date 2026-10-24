@@ -59,9 +59,10 @@ extension TrackingEngine {
       for surplus in ordered.dropFirst() {
         do {
           if surplus.hasOpenSegment {
-            try await store.interruptSegment(sessionID: surplus.id, at: surplus.lastActivityDate)
+            try await store.interruptSegment(
+              sessionID: surplus.id, at: surplus.lastActivityDate, steps: nil)
           }
-          try await store.finish(sessionID: surplus.id, at: surplus.lastActivityDate)
+          try await store.finish(sessionID: surplus.id, at: surplus.lastActivityDate, steps: nil)
           trackingLogger.warning("Finished a surplus unfinished walking session")
         } catch { report(error) }
       }
@@ -113,7 +114,8 @@ extension TrackingEngine {
           case .continueSegment: break
           case .closeAndOpen(let date):
             try await store.splitSegment(
-              sessionID: record.id, closingAt: date, reason: .interrupted, nextStart: now)
+              sessionID: record.id, closingAt: date, reason: .interrupted, steps: nil,
+              nextStart: now)
             liveSession?.close(at: date, reason: .interrupted)
             liveSession?.open(at: now)
           case .openNew:
@@ -230,7 +232,8 @@ extension TrackingEngine {
           if liveSession.record.hasOpenSegment {
             let date = liveSession.lastActivity
             try await store.splitSegment(
-              sessionID: liveSession.id, closingAt: date, reason: .interrupted, nextStart: now)
+              sessionID: liveSession.id, closingAt: date, reason: .interrupted, steps: nil,
+              nextStart: now)
             liveSession.close(at: date, reason: .interrupted)
             liveSession.open(at: now)
           } else {

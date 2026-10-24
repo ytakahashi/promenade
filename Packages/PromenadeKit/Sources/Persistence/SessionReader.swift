@@ -23,6 +23,20 @@ public struct SessionReader {
     return try context.fetch(descriptor).first?.record()
   }
 
+  /// Finished sessions, newest first, without loading segments or points.
+  public func finishedSessions() throws -> [SessionListItem] {
+    let finished = SessionState.finished.rawValue
+    var descriptor = FetchDescriptor<WalkingSession>(
+      predicate: #Predicate { $0.stateRaw == finished },
+      sortBy: [SortDescriptor(\.startDate, order: .reverse), SortDescriptor(\.id)]
+    )
+    // Lists can hold thousands of sessions; read only the saved metrics.
+    descriptor.propertiesToFetch = [
+      \.id, \.startDate, \.timeZoneIdentifier, \.distance, \.walkingDuration, \.steps,
+    ]
+    return try context.fetch(descriptor).map { $0.listItem() }
+  }
+
   /// Newest first. Recovery can finish surplus sessions through the recording actor.
   public func unfinishedSessions() throws -> [SessionRecord] {
     try context.fetch(unfinishedDescriptor()).map { try $0.record() }

@@ -4,6 +4,7 @@ public enum PersistenceError: Error, Sendable, Equatable {
   case sessionNotFound(UUID)
   case duplicateSession(UUID)
   case invalidState
+  case sessionNotFinished
   case noOpenSegment
   case segmentAlreadyOpen
   case invalidDate
