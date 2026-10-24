@@ -45,6 +45,7 @@ struct TrackingScreen: View {
         // re-reads it; a plain Task would let the still-pending dialog be presented again.
         Task.immediate { await presentation.confirmDialog(engine) }
       },
+      discard: { Task.immediate { await presentation.discardFinish(engine) } },
       cancel: { presentation.cancelDialog(engine) }
     )
     .onChange(of: locationAccess) { _, access in

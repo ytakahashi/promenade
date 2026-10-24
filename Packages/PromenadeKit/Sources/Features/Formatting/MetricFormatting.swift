@@ -56,6 +56,17 @@ struct MetricFormatting {
     return formatter.string(from: TimeInterval(seconds)) ?? duration(interval)
   }
 
+  /// Unmeasured steps (`nil`) are shown as "--", never as zero.
+  func steps(_ steps: Int?) -> String {
+    guard let steps else { return "--" }
+    return steps.formatted(.number.locale(locale))
+  }
+
+  func stepsAccessibility(_ steps: Int?) -> String {
+    guard steps != nil else { return String(localized: "Not available", bundle: .module) }
+    return self.steps(steps)
+  }
+
   func paceSeconds(secondsPerMeter: Double?, distance: Double) -> Int? {
     guard distance.isFinite, distance >= Self.rateDisplayMinimumDistance,
       let secondsPerMeter, secondsPerMeter.isFinite, secondsPerMeter > 0

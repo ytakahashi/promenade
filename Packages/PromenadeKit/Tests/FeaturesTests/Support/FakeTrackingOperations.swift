@@ -10,6 +10,7 @@ final class FakeTrackingOperations: TrackingOperations {
     case requestPause(Date)
     case requestFinish(Date)
     case confirm
+    case discard
     case cancel
     case resume(Date)
     case resolveRecovery(RecoveryChoice)
@@ -32,6 +33,10 @@ final class FakeTrackingOperations: TrackingOperations {
   var lastFinishedSessionID: UUID?
   var acceptsRequests = true
   var confirmOutcome = Outcome.success
+  var discardOutcome = Outcome.success
+  /// Progress reported for any date; long enough by default not to be a short walk.
+  var progress: (distance: Double, walking: TimeInterval)? = (1000, 600)
+  private(set) var progressDates: [Date] = []
   var resumeOutcome = Outcome.success
   /// Suspends async operations until `release()`, to observe state while a call is in flight.
   var holdsOperations = false
@@ -59,6 +64,25 @@ final class FakeTrackingOperations: TrackingOperations {
     switch confirmOutcome {
     case .success:
       phase = pendingTransition?.kind == .pause ? .paused : .idle
+      pendingTransition = nil
+      operationFailure = nil
+    case .failure: operationFailure = .persistence
+    case .ignored: break
+    }
+  }
+
+  func liveProgress(asOf date: Date) -> (distance: Double, walking: TimeInterval)? {
+    progressDates.append(date)
+    return progress
+  }
+
+  func discardPendingFinish() async {
+    calls.append(.discard)
+    await hold()
+    switch discardOutcome {
+    case .success:
+      phase = .idle
+      hasLiveSession = false
       pendingTransition = nil
       operationFailure = nil
     case .failure: operationFailure = .persistence

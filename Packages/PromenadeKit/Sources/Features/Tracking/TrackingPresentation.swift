@@ -1,11 +1,16 @@
+import Domain
 import Foundation
 import Observation
 import Tracking
 
 enum TrackingDialog: Equatable {
   case confirmTransition(PendingTransition.Kind)
+  /// Finishing a short walk offers discarding it as well as saving it.
+  case confirmShortFinish
   /// `isPaused` is the state Cancel keeps: Finish can also be requested while paused.
   case retryTransition(PendingTransition.Kind, isPaused: Bool)
+  /// A failed discard is retried as a discard, never as a save.
+  case retryDiscard(isPaused: Bool)
   case confirmResume
   case retryResume
 }
@@ -31,14 +36,22 @@ final class TrackingPresentation {
   /// transition later on its queue, and the dialog must not reappear in the meantime.
   private(set) var respondedTransitionID: UUID?
   private(set) var failedTransitionID: UUID?
+  /// The pending finish judged short when it was requested. Judged once so the dialog does not
+  /// change while shown, e.g. when a delayed point raises the distance.
+  private(set) var shortFinishTransitionID: UUID?
+  /// The pending finish the user chose to discard; a retry after failure discards again.
+  private(set) var discardingTransitionID: UUID?
   /// Set before calling the engine: `isBusy` is raised only once the engine's queue runs the call.
   private(set) var isPerforming = false
   /// The finished walk whose summary is shown.
   private(set) var summary: SummaryItem?
   @ObservationIgnored private let now: () -> Date
+  @ObservationIgnored private let shortWalkPolicy: ShortWalkPolicy
 
-  init(now: @escaping () -> Date = Date.init) {
+  init(now: @escaping () -> Date = Date.init, shortWalkPolicy: ShortWalkPolicy = ShortWalkPolicy())
+  {
     self.now = now
+    self.shortWalkPolicy = shortWalkPolicy
   }
 
   func dialog(for engine: some TrackingOperations) -> TrackingDialog? {
@@ -46,9 +59,13 @@ final class TrackingPresentation {
     if let pending = engine.pendingTransition {
       if pending.id == failedTransitionID {
         // A failed transition leaves the phase unchanged, so it is the state Cancel returns to.
-        return .retryTransition(pending.kind, isPaused: engine.phase == .paused)
+        let isPaused = engine.phase == .paused
+        return pending.id == discardingTransitionID
+          ? .retryDiscard(isPaused: isPaused) : .retryTransition(pending.kind, isPaused: isPaused)
       }
-      return pending.id == respondedTransitionID ? nil : .confirmTransition(pending.kind)
+      if pending.id == respondedTransitionID { return nil }
+      return pending.id == shortFinishTransitionID
+        ? .confirmShortFinish : .confirmTransition(pending.kind)
     }
     guard let resumeRequest else { return nil }
     return resumeRequest.failed ? .retryResume : .confirmResume
@@ -93,8 +110,14 @@ final class TrackingPresentation {
   }
 
   func requestFinish(_ engine: some TrackingOperations) {
-    guard canOperate(engine) else { return }
-    _ = engine.requestFinish(at: now())
+    guard canOperate(engine), engine.requestFinish(at: now()),
+      let pending = engine.pendingTransition,
+      let progress = engine.liveProgress(asOf: pending.date)
+    else { return }
+    // The cutoff is the tap time, so progress up to it matches what Save would store.
+    if shortWalkPolicy.isShort(distance: progress.distance, walkingDuration: progress.walking) {
+      shortFinishTransitionID = pending.id
+    }
   }
 
   func requestResume(_ engine: some TrackingOperations) {
@@ -103,8 +126,12 @@ final class TrackingPresentation {
   }
 
   func confirmDialog(_ engine: some TrackingOperations) async {
-    if engine.pendingTransition != nil {
-      await confirmTransition(engine)
+    if let pending = engine.pendingTransition {
+      if pending.id == discardingTransitionID {
+        await discardFinish(engine)
+      } else {
+        await confirmTransition(engine)
+      }
     } else if resumeRequest != nil {
       await confirmResume(engine)
     }
@@ -133,6 +160,21 @@ final class TrackingPresentation {
     await engine.confirmPendingTransition()
     isPerforming = false
     // The engine keeps a transition whose save failed so the same date can be retried.
+    if engine.pendingTransition?.id == pending.id { failedTransitionID = pending.id }
+  }
+
+  /// Discards the walk from the short-walk dialog instead of saving it.
+  func discardFinish(_ engine: some TrackingOperations) async {
+    guard !isPerforming, let pending = engine.pendingTransition, pending.kind == .finish,
+      pending.id == shortFinishTransitionID
+    else { return }
+    respondedTransitionID = pending.id
+    discardingTransitionID = pending.id
+    failedTransitionID = nil
+    isPerforming = true
+    await engine.discardPendingFinish()
+    isPerforming = false
+    // Like a failed save, a failed discard keeps the transition for a retry or Cancel.
     if engine.pendingTransition?.id == pending.id { failedTransitionID = pending.id }
   }
 

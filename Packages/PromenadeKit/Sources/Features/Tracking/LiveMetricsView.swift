@@ -31,6 +31,7 @@ struct LiveMetricsView: View {
   private func panel(asOf date: Date) -> some View {
     MetricsPanel(
       metrics: SessionMetrics(
-        distance: session.route.distance, timing: session.timing(asOf: date), steps: nil))
+        distance: session.route.distance, timing: session.timing(asOf: date),
+        steps: session.steps))
   }
 }

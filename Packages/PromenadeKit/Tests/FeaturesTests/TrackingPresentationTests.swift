@@ -77,6 +77,104 @@ struct TrackingPresentationTests {
     #expect(presentation.dialog(for: engine) == .retryTransition(.finish, isPaused: true))
   }
 
+  // MARK: Short walks
+
+  @Test(arguments: [(49.9, 600.0), (1000, 59.9)])
+  func shortWalkOffersSavingOrDiscarding(distance: Double, walking: TimeInterval) {
+    engine.progress = (distance, walking)
+    presentation.requestFinish(engine)
+    #expect(engine.progressDates == [clock.date])
+    #expect(presentation.dialog(for: engine) == .confirmShortFinish)
+  }
+
+  @Test func walkAtTheMinimumsIsNotShort() {
+    engine.progress = (50, 60)
+    presentation.requestFinish(engine)
+    #expect(presentation.dialog(for: engine) == .confirmTransition(.finish))
+  }
+
+  @Test func shortWalkJudgementUsesTheConfiguredPolicy() {
+    var configuration = TrackingConfiguration.default
+    configuration.shortWalkMinimumDistance = 2000
+    let clock = clock
+    let presentation = TrackingPresentation(
+      now: { clock.date }, shortWalkPolicy: ShortWalkPolicy(configuration: configuration))
+    presentation.requestFinish(engine)
+    #expect(presentation.dialog(for: engine) == .confirmShortFinish)
+  }
+
+  @Test func shortWalkJudgementIsFixedWhileTheDialogIsShown() {
+    engine.progress = (10, 10)
+    presentation.requestFinish(engine)
+    engine.progress = (1000, 600)
+    #expect(presentation.dialog(for: engine) == .confirmShortFinish)
+  }
+
+  @Test func pauseIsNeverJudgedShort() {
+    engine.progress = (10, 10)
+    presentation.requestPause(engine)
+    #expect(presentation.dialog(for: engine) == .confirmTransition(.pause))
+    #expect(engine.progressDates.isEmpty)
+  }
+
+  @Test func savingAShortWalkFinishesIt() async {
+    engine.progress = (10, 10)
+    presentation.requestFinish(engine)
+    await presentation.confirmDialog(engine)
+    #expect(engine.calls == [.requestFinish(clock.date), .confirm])
+    #expect(engine.pendingTransition == nil)
+  }
+
+  @Test func discardingAShortWalkHidesTheDialogWhileInFlight() async {
+    engine.progress = (10, 10)
+    presentation.requestFinish(engine)
+    engine.holdsOperations = true
+    let task = Task.immediate { await presentation.discardFinish(engine) }
+    #expect(presentation.dialog(for: engine) == nil)
+    await presentation.discardFinish(engine)
+    engine.release()
+    await task.value
+    #expect(engine.calls == [.requestFinish(clock.date), .discard])
+    #expect(engine.pendingTransition == nil)
+    #expect(presentation.dialog(for: engine) == nil)
+  }
+
+  @Test func discardIsOnlyOfferedForAShortWalk() async {
+    presentation.requestFinish(engine)
+    await presentation.discardFinish(engine)
+    #expect(!engine.calls.contains(.discard))
+    #expect(presentation.dialog(for: engine) == .confirmTransition(.finish))
+  }
+
+  @Test func failedDiscardRetriesTheDiscard() async {
+    engine.progress = (10, 10)
+    engine.discardOutcome = .failure
+    presentation.requestFinish(engine)
+    await presentation.discardFinish(engine)
+    #expect(presentation.dialog(for: engine) == .retryDiscard(isPaused: false))
+    #expect(presentation.banner(for: engine) == nil)
+
+    engine.discardOutcome = .success
+    await presentation.confirmDialog(engine)
+    #expect(engine.calls == [.requestFinish(clock.date), .discard, .discard])
+    #expect(!engine.calls.contains(.confirm))
+    #expect(presentation.dialog(for: engine) == nil)
+  }
+
+  @Test func cancellingAFailedDiscardKeepsTheWalk() async {
+    engine.progress = (10, 10)
+    engine.discardOutcome = .failure
+    engine.phase = .paused
+    presentation.requestFinish(engine)
+    await presentation.discardFinish(engine)
+    #expect(presentation.dialog(for: engine) == .retryDiscard(isPaused: true))
+    presentation.cancelDialog(engine)
+    #expect(engine.calls.suffix(2) == [.clearFailure, .cancel])
+    #expect(presentation.dialog(for: engine) == nil)
+    engine.completeCancellation()
+    #expect(presentation.canOperate(engine))
+  }
+
   @Test func cancellationDoesNotReshowTheDialogBeforeTheEngineClearsIt() {
     presentation.requestPause(engine)
     presentation.cancelDialog(engine)

@@ -49,13 +49,46 @@ final class TrackingFlowUITests: XCTestCase {
     start(app)
     app.buttons["Finish"].press(forDuration: 1.6)
     XCTAssertTrue(app.alerts["Finish Walk?"].waitForExistence(timeout: 5))
-    app.alerts.buttons["Finish"].tap()
+    // A walk of a few seconds is short, so it is saved explicitly.
+    app.alerts.buttons["Save"].tap()
     assertSummary(app)
     app.navigationBars.buttons["Done"].tap()
     XCTAssertTrue(app.buttons["Start"].waitForExistence(timeout: 5))
     app.tabBars.buttons["History"].tap()
     app.tabBars.buttons["Tracking"].tap()
     XCTAssertFalse(app.navigationBars["Walk Summary"].waitForExistence(timeout: 2))
+  }
+
+  @MainActor
+  func testShortWalkCanBeDiscarded() {
+    let app = launch()
+    start(app)
+    app.buttons["Finish"].press(forDuration: 1.6)
+    let alert = app.alerts["Finish Walk?"]
+    XCTAssertTrue(alert.waitForExistence(timeout: 5))
+    XCTAssertTrue(alert.buttons["Save"].exists)
+    alert.buttons["Discard"].tap()
+    XCTAssertTrue(app.buttons["Start"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.navigationBars["Walk Summary"].waitForExistence(timeout: 2))
+    XCTAssertEqual(app.tabBars.buttons["Tracking"].value as? String, "Not recording")
+  }
+
+  @MainActor
+  func testStepsAreShownWhileRecording() {
+    let app = launch()
+    start(app)
+    let steps = app.otherElements["Steps"].firstMatch
+    XCTAssertTrue(steps.waitForExistence(timeout: 5))
+    XCTAssertNotEqual(steps.value as? String, "Not available")
+  }
+
+  @MainActor
+  func testUnmeasuredStepsAreShownAsNotAvailable() {
+    let app = launch(extraArguments: ["-ReplaySteps", "none"])
+    start(app)
+    let steps = app.otherElements["Steps"].firstMatch
+    XCTAssertTrue(steps.waitForExistence(timeout: 5))
+    XCTAssertEqual(steps.value as? String, "Not available")
   }
 
   @MainActor
@@ -73,11 +106,11 @@ final class TrackingFlowUITests: XCTestCase {
   // MARK: Helpers
 
   @MainActor
-  private func launch() -> XCUIApplication {
+  private func launch(extraArguments: [String] = []) -> XCUIApplication {
     let app = XCUIApplication()
     app.launchArguments =
       ["-ReplayGPX", store.directory.appendingPathComponent("walk.gpx").path]
-      + store.launchArguments
+      + extraArguments + store.launchArguments
     app.launch()
     return app
   }

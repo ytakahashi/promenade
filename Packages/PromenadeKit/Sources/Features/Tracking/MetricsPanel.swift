@@ -32,6 +32,9 @@ struct MetricsPanel: View {
       "Distance", value: formatting.distance(metrics.distance),
       accessibility: formatting.distance(metrics.distance, width: .wide))
     metric(
+      "Steps", value: formatting.steps(metrics.steps),
+      accessibility: formatting.stepsAccessibility(metrics.steps))
+    metric(
       "Average pace",
       value: formatting.pace(secondsPerMeter: metrics.averagePace, distance: metrics.distance),
       accessibility: formatting.paceAccessibility(
@@ -60,7 +63,7 @@ struct MetricsPanel: View {
     metrics: SessionMetrics(
       distance: 2540,
       timing: SessionTiming(elapsed: 2100, walking: 1800, pause: 300, interruption: 0),
-      steps: nil)
+      steps: 3240)
   )
   .environment(\.locale, Locale(identifier: "en_GB@measure=metric"))
 }
@@ -71,7 +74,7 @@ struct MetricsPanel: View {
       metrics: SessionMetrics(
         distance: 120_000,
         timing: SessionTiming(elapsed: 94_000, walking: 90_000, pause: 4000, interruption: 0),
-        steps: nil))
+        steps: 165_432))
   }
   .environment(\.locale, Locale(identifier: "en_US"))
   .environment(\.dynamicTypeSize, .accessibility5)

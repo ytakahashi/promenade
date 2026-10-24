@@ -1,3 +1,4 @@
+import Domain
 import Foundation
 import Tracking
 
@@ -16,7 +17,10 @@ protocol TrackingOperations: AnyObject {
   func start() async
   func requestPause(at date: Date) -> Bool
   func requestFinish(at date: Date) -> Bool
+  /// Distance and walking time of the live walk as of `date`, or `nil` without a live walk.
+  func liveProgress(asOf date: Date) -> (distance: Double, walking: TimeInterval)?
   func confirmPendingTransition() async
+  func discardPendingFinish() async
   func cancelPendingTransition()
   func resume(at date: Date) async
   func resolveRecovery(_ choice: RecoveryChoice) async
@@ -29,4 +33,9 @@ protocol TrackingOperations: AnyObject {
 
 extension TrackingEngine: TrackingOperations {
   var hasLiveSession: Bool { liveSession != nil }
+
+  func liveProgress(asOf date: Date) -> (distance: Double, walking: TimeInterval)? {
+    guard let liveSession else { return nil }
+    return (liveSession.route.distance, liveSession.timing(asOf: date).walking)
+  }
 }

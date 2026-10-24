@@ -27,6 +27,16 @@ struct MetricFormattingTests {
     #expect(miles.distance(1609.344) == "1.00 mi")
   }
 
+  @Test func stepsUseLocaleGroupingAndShowUnmeasuredAsDashes() {
+    let us = MetricFormatting(locale: Locale(identifier: "en_US"))
+    #expect(us.steps(6196) == "6,196")
+    #expect(us.steps(0) == "0")
+    #expect(us.steps(nil) == "--")
+    #expect(us.stepsAccessibility(6196) == "6,196")
+    #expect(us.stepsAccessibility(nil) == "Not available")
+    #expect(MetricFormatting(locale: Locale(identifier: "de_DE")).steps(6196) == "6.196")
+  }
+
   @Test func paceUsesRawDistanceAndWalkingTime() {
     let formatting = MetricFormatting(locale: Locale(identifier: "en_US@measure=metric"))
     #expect(formatting.pace(secondsPerMeter: 0.6, distance: 49.999) == "--")

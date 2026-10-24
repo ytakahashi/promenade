@@ -830,6 +830,76 @@
           }
         }
       }
+    },
+    "Steps": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Steps"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        }
+      }
+    },
+    "Discard": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard"
+          }
+        }
+      }
+    },
+    "Unable to Discard Walk": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to Discard Walk"
+          }
+        }
+      }
+    },
+    "This walk is very short. Save it up to when you held Finish, or discard it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This walk is very short. Save it up to when you held Finish, or discard it."
+          }
+        }
+      }
+    },
+    "%@ Retry to discard it again. Cancel to continue recording.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ Retry to discard it again. Cancel to continue recording."
+          }
+        }
+      }
+    },
+    "%@ Retry to discard it again. Cancel to stay paused.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ Retry to discard it again. Cancel to stay paused."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
