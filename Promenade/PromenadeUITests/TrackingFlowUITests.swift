@@ -130,6 +130,22 @@ final class TrackingFlowUITests: XCTestCase {
   }
 
   @MainActor
+  func testSettingsShowsPermissionsFromHistory() {
+    let app = launch(extraArguments: ["-ReplaySteps", "none"])
+    XCTAssertTrue(app.tabBars.buttons["History"].waitForExistence(timeout: 10))
+    app.tabBars.buttons["History"].tap()
+    app.navigationBars.buttons["Settings"].tap()
+    XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+    XCTAssertTrue(element(app, labelContaining: "Version").exists)
+    // Replay grants location; "-ReplaySteps none" behaves like denied motion access.
+    XCTAssertTrue(element(app, labelContaining: "Location, Allowed").exists)
+    XCTAssertTrue(element(app, labelContaining: "Motion & Fitness, Denied").exists)
+    XCTAssertTrue(app.buttons["Open Settings"].exists)
+    app.navigationBars.buttons["Done"].tap()
+    XCTAssertTrue(app.navigationBars["History"].waitForExistence(timeout: 5))
+  }
+
+  @MainActor
   func testFinishingAfterTerminationAsksAndShowsTheSummary() {
     let app = launch()
     start(app)
@@ -170,6 +186,12 @@ final class TrackingFlowUITests: XCTestCase {
     assertSummary(app)
     app.navigationBars.buttons["Done"].tap()
     XCTAssertTrue(app.buttons["Start"].waitForExistence(timeout: 5))
+  }
+
+  @MainActor
+  private func element(_ app: XCUIApplication, labelContaining text: String) -> XCUIElement {
+    app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text))
+      .firstMatch
   }
 
   @MainActor

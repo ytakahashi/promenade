@@ -5,18 +5,38 @@ struct HistoryScreen: View {
   let model: HistoryModel
   let route: RouteFilter.Configuration
   let readSession: @MainActor (UUID) throws -> SessionRecord?
+  let settings: SettingsModel
+  let locationAccess: LocationAccessState
+  @State private var showsSettings = false
   @Environment(\.locale) private var locale
 
   var body: some View {
     NavigationStack {
       content
         .navigationTitle(Text("History", bundle: .module))
+        .toolbar {
+          ToolbarItem(placement: .topBarTrailing) {
+            Button {
+              showsSettings = true
+            } label: {
+              Label {
+                Text("Settings", bundle: .module)
+              } icon: {
+                Image(systemName: "gearshape")
+              }
+            }
+          }
+        }
         .navigationDestination(for: UUID.self) { id in
           SessionDetailScreen(
             model: SessionSummaryModel(sessionID: id, route: route, read: readSession))
         }
     }
     .onAppear { model.load() }
+    .sheet(isPresented: $showsSettings) {
+      SettingsSheet(
+        model: settings, locationAccess: locationAccess, close: { showsSettings = false })
+    }
     .alert(
       Text("Delete Walk?", bundle: .module),
       isPresented: Binding(

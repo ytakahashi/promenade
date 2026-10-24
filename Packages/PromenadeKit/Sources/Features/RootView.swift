@@ -13,13 +13,16 @@ public struct RootView: View {
   @State private var trackingPresentation: TrackingPresentation
   /// Owned here so the loaded list and a pending deletion survive tab switches.
   @State private var historyModel: HistoryModel
+  @State private var settingsModel: SettingsModel
 
   public init(
     engine: TrackingEngine, configuration: TrackingConfiguration,
     locationAccess: LocationAccessState,
     readSession: @escaping @MainActor (UUID) throws -> SessionRecord?,
     listSessions: @escaping @MainActor () throws -> [SessionListItem],
-    deleter: any SessionDeleting
+    deleter: any SessionDeleting,
+    motionAccess: @escaping @MainActor () -> MotionAccessState,
+    infoDictionary: [String: Any]? = Bundle.main.infoDictionary
   ) {
     self.engine = engine
     self.configuration = configuration
@@ -29,6 +32,8 @@ public struct RootView: View {
       initialValue: TrackingPresentation(
         shortWalkPolicy: ShortWalkPolicy(configuration: configuration)))
     _historyModel = State(initialValue: HistoryModel(list: listSessions, deleter: deleter))
+    _settingsModel = State(
+      initialValue: SettingsModel(infoDictionary: infoDictionary, motionAccess: motionAccess))
   }
 
   public var body: some View {
@@ -45,7 +50,9 @@ public struct RootView: View {
       }
       .accessibilityValue(trackingAccessibilityValue)
       Tab {
-        HistoryScreen(model: historyModel, route: configuration.route, readSession: readSession)
+        HistoryScreen(
+          model: historyModel, route: configuration.route, readSession: readSession,
+          settings: settingsModel, locationAccess: locationAccess)
       } label: {
         Label {
           Text("History", bundle: .module)

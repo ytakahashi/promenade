@@ -53,6 +53,19 @@ struct AppSensors {
   }
 }
 
+extension MotionAccessState {
+  init(_ access: MotionAccess) {
+    self =
+      switch access {
+      case .notDetermined: .notDetermined
+      case .allowed: .allowed
+      case .denied: .denied
+      case .restricted: .restricted
+      case .unavailable: .unavailable
+      }
+  }
+}
+
 struct StartupFailure: Error, Equatable {
   let kind: StartupFailureKind
   let detail: String

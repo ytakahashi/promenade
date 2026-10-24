@@ -1,6 +1,8 @@
 import Domain
+import Features
 import Foundation
 import Persistence
+import Sensors
 import SwiftData
 import Tracking
 
@@ -8,10 +10,12 @@ struct AppDependencies {
   let container: ModelContainer
   let store: SwiftDataTrackingStore
   let engine: TrackingEngine
+  let pedometer: any PedometerProvider
 
   init(container: ModelContainer, sensors: AppSensors, configuration: TrackingConfiguration) {
     self.container = container
     store = SwiftDataTrackingStore(container: container, configuration: configuration)
+    pedometer = sensors.pedometer
     engine = TrackingEngine(
       store: store, provider: sensors.provider, locationSession: sensors.session,
       pedometer: sensors.pedometer, configuration: configuration)
@@ -19,6 +23,10 @@ struct AppDependencies {
 
   func readSession(id: UUID) throws -> SessionRecord? {
     try Self.reader(container: container).session(id: id)
+  }
+
+  func motionAccess() -> MotionAccessState {
+    MotionAccessState(pedometer.access)
   }
 
   func listSessions() throws -> [SessionListItem] {

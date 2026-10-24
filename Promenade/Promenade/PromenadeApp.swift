@@ -34,7 +34,8 @@ private struct AppContentView: View {
         RootView(
           engine: dependencies.engine, configuration: environment.configuration,
           locationAccess: environment.locationAccess, readSession: dependencies.readSession,
-          listSessions: dependencies.listSessions, deleter: dependencies.store)
+          listSessions: dependencies.listSessions, deleter: dependencies.store,
+          motionAccess: dependencies.motionAccess)
       }
     }
   }
