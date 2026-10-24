@@ -13,6 +13,20 @@
         try ReplayLaunchOptions.parse(["App", "-ReplayGPX", "/tmp/walk with spaces.gpx"]))
       #expect(options.path == "/tmp/walk with spaces.gpx")
       #expect(options.speedMultiplier == 1)
+      #expect(options.measuresSteps)
+    }
+
+    @Test func noneStepsDisablesStepCounting() throws {
+      let options = try #require(
+        try ReplayLaunchOptions.parse(["-ReplaySteps", "none", "-ReplayGPX", "/tmp/walk.gpx"]))
+      #expect(!options.measuresSteps)
+    }
+
+    @Test(arguments: ["None", "0", "110"])
+    func rejectsInvalidSteps(_ value: String) {
+      #expect(throws: ReplayLaunchOptions.ParseError.invalidSteps) {
+        try ReplayLaunchOptions.parse(["-ReplayGPX", "/tmp/walk.gpx", "-ReplaySteps", value])
+      }
     }
 
     @Test func acceptsReorderedOptionsAndSystemArguments() throws {
@@ -31,7 +45,7 @@
       }
     }
 
-    @Test(arguments: ["-ReplayGPX", "-ReplaySpeed"])
+    @Test(arguments: ["-ReplayGPX", "-ReplaySpeed", "-ReplaySteps"])
     func rejectsMissingValues(_ option: String) {
       for arguments in [[option], [option, ""], [option, "-ReplayGPX"]] {
         #expect(throws: ReplayLaunchOptions.ParseError.missingValue(option)) {
@@ -47,9 +61,12 @@
       #expect(throws: ReplayLaunchOptions.ParseError.missingGPX) {
         try ReplayLaunchOptions.parse(["-ReplaySpeed", "2"])
       }
+      #expect(throws: ReplayLaunchOptions.ParseError.missingGPX) {
+        try ReplayLaunchOptions.parse(["-ReplaySteps", "none"])
+      }
     }
 
-    @Test(arguments: ["-ReplayGPX", "-ReplaySpeed"])
+    @Test(arguments: ["-ReplayGPX", "-ReplaySpeed", "-ReplaySteps"])
     func rejectsDuplicateOptions(_ option: String) {
       #expect(throws: ReplayLaunchOptions.ParseError.duplicateOption(option)) {
         try ReplayLaunchOptions.parse([option, "/tmp/walk.gpx", option, "2"])

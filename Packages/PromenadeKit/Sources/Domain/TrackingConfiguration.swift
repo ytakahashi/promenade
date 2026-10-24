@@ -23,6 +23,12 @@ public struct TrackingConfiguration: Sendable, Equatable {
   public var recoveryActivationTimeout: TimeInterval
   /// Seconds to wait for a scene to become active before inferring a background launch.
   public var launchContextTimeout: TimeInterval
+  /// Seconds to wait for the step count of a segment being closed before saving it as unmeasured.
+  public var stepQueryTimeout: TimeInterval
+  /// Distance in meters below which a finishing walk is short.
+  public var shortWalkMinimumDistance: Double
+  /// Walking time in seconds below which a finishing walk is short.
+  public var shortWalkMinimumDuration: TimeInterval
 
   public init(
     storageMaxHorizontalAccuracy: Double,
@@ -32,7 +38,10 @@ public struct TrackingConfiguration: Sendable, Equatable {
     autoFinishThreshold: TimeInterval = 6 * 60 * 60,
     saveBatchSize: Int = 10,
     recoveryActivationTimeout: TimeInterval = 10,
-    launchContextTimeout: TimeInterval = 3
+    launchContextTimeout: TimeInterval = 3,
+    stepQueryTimeout: TimeInterval = 2,
+    shortWalkMinimumDistance: Double = 50,
+    shortWalkMinimumDuration: TimeInterval = 60
   ) {
     self.storageMaxHorizontalAccuracy = storageMaxHorizontalAccuracy
     self.route = route
@@ -42,6 +51,9 @@ public struct TrackingConfiguration: Sendable, Equatable {
     self.saveBatchSize = saveBatchSize
     self.recoveryActivationTimeout = recoveryActivationTimeout
     self.launchContextTimeout = launchContextTimeout
+    self.stepQueryTimeout = stepQueryTimeout
+    self.shortWalkMinimumDistance = shortWalkMinimumDistance
+    self.shortWalkMinimumDuration = shortWalkMinimumDuration
   }
 
   public static let `default` = TrackingConfiguration(
