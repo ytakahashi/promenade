@@ -14,7 +14,7 @@ struct AppDependencies {
     store = SwiftDataTrackingStore(container: container, configuration: configuration)
     engine = TrackingEngine(
       store: store, provider: sensors.provider, locationSession: sensors.session,
-      configuration: configuration)
+      pedometer: sensors.pedometer, configuration: configuration)
   }
 
   func readSession(id: UUID) throws -> SessionRecord? {

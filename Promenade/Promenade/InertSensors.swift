@@ -1,4 +1,5 @@
 import Domain
+import Foundation
 import Persistence
 import Sensors
 
@@ -7,6 +8,13 @@ nonisolated struct InertLocationProvider: LocationProvider {
   func events() -> AsyncThrowingStream<LocationEvent, any Error> {
     AsyncThrowingStream { $0.finish() }
   }
+}
+
+/// A pedometer that never counts steps and never touches Core Motion.
+nonisolated struct InertPedometerProvider: PedometerProvider {
+  var access: MotionAccess { .unavailable }
+  func steps(from start: Date, to end: Date) async -> Int? { nil }
+  func liveSteps(from start: Date) -> AsyncStream<Int> { AsyncStream { $0.finish() } }
 }
 
 /// A session that never creates Core Location resources and never grants access.

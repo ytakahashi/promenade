@@ -45,7 +45,7 @@ struct TrackingMapContentTests {
     } onChange: {
       invalidated.withLock { $0 = true }
     }
-    session.pause(at: point(2).timestamp)
+    session.pause(at: point(2).timestamp, steps: nil)
     #expect(!invalidated.withLock { $0 })
     session.open(at: point(3).timestamp)
     #expect(invalidated.withLock { $0 })

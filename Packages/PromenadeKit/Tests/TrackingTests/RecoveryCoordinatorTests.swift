@@ -189,6 +189,8 @@ struct RecoveryCoordinatorTests {
     #expect(try await h.record().segments.count == 2)
     await gate.release()
     await eventually { h.engine.phase == .recording(.waitingForAccess(.denied)) }
+    // The phase changes before the segment is closed; wait for the late denial to complete.
+    await h.engine.waitForQueuedOperations()
     #expect(try await h.record().hasOpenSegment == false)
     #expect(h.session.deactivations == 0)
   }

@@ -50,6 +50,7 @@ extension TrackingEngine {
       defer {
         isBusy = false
         recoveryScheduled = false
+        syncLiveSteps()
       }
       if let record {
         await recover(
@@ -58,12 +59,16 @@ extension TrackingEngine {
       }
       for surplus in ordered.dropFirst() {
         do {
-          if surplus.hasOpenSegment {
-            try await store.interruptSegment(
-              sessionID: surplus.id, at: surplus.lastActivityDate, steps: nil)
+          if surplus.hasOpenSegment, let open = surplus.segments.last {
+            let date = surplus.lastActivityDate
+            let steps = try await self.steps(from: open.startDate, to: date)
+            try await store.interruptSegment(sessionID: surplus.id, at: date, steps: steps)
           }
           try await store.finish(sessionID: surplus.id, at: surplus.lastActivityDate, steps: nil)
           trackingLogger.warning("Finished a surplus unfinished walking session")
+        } catch is CancellationError {
+          // Left unfinished; the next launch finishes surplus sessions again.
+          break
         } catch { report(error) }
       }
     }
@@ -113,10 +118,11 @@ extension TrackingEngine {
           switch mode {
           case .continueSegment: break
           case .closeAndOpen(let date):
+            let steps = try await closingSteps(until: date)
             try await store.splitSegment(
-              sessionID: record.id, closingAt: date, reason: .interrupted, steps: nil,
+              sessionID: record.id, closingAt: date, reason: .interrupted, steps: steps,
               nextStart: now)
-            liveSession?.close(at: date, reason: .interrupted)
+            liveSession?.close(at: date, reason: .interrupted, steps: steps)
             liveSession?.open(at: now)
           case .openNew:
             try await store.openSegment(sessionID: record.id, at: now)
@@ -219,7 +225,10 @@ extension TrackingEngine {
     await queue.run { [self] in
       guard case .awaitingRecoveryDecision = phase, let liveSession else { return }
       isBusy = true
-      defer { isBusy = false }
+      defer {
+        isBusy = false
+        syncLiveSteps()
+      }
       do {
         switch choice {
         case .finish:
@@ -231,10 +240,11 @@ extension TrackingEngine {
           let now = max(dates.now(), liveSession.lastActivity)
           if liveSession.record.hasOpenSegment {
             let date = liveSession.lastActivity
+            let steps = try await closingSteps(until: date)
             try await store.splitSegment(
-              sessionID: liveSession.id, closingAt: date, reason: .interrupted, steps: nil,
+              sessionID: liveSession.id, closingAt: date, reason: .interrupted, steps: steps,
               nextStart: now)
-            liveSession.close(at: date, reason: .interrupted)
+            liveSession.close(at: date, reason: .interrupted, steps: steps)
             liveSession.open(at: now)
           } else {
             try await store.openSegment(sessionID: liveSession.id, at: now)

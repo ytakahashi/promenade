@@ -5,8 +5,9 @@ import Persistence
 import Sensors
 import os
 
-/// Recording state machine. Location event handling lives in `TrackingEngine+Events.swift` and
-/// launch recovery in `TrackingEngine+Recovery.swift`.
+/// Recording state machine. Location event handling lives in `TrackingEngine+Events.swift`,
+/// launch recovery in `TrackingEngine+Recovery.swift` and step counting in
+/// `TrackingEngine+Steps.swift`.
 @MainActor
 @Observable
 public final class TrackingEngine {
@@ -22,6 +23,7 @@ public final class TrackingEngine {
   @ObservationIgnored let store: any TrackingStore
   @ObservationIgnored let provider: any LocationProvider
   @ObservationIgnored let locationSession: any LocationSession
+  @ObservationIgnored let pedometer: any PedometerProvider
   @ObservationIgnored let dates: any DateProvider
   @ObservationIgnored let configuration: TrackingConfiguration
   @ObservationIgnored let timeZone: @MainActor () -> TimeZone
@@ -29,6 +31,9 @@ public final class TrackingEngine {
   @ObservationIgnored let queue = TrackingOperationQueue()
   @ObservationIgnored var updatesTask: Task<Void, Never>?
   @ObservationIgnored var subscriptionID: UUID?
+  @ObservationIgnored var liveStepsTask: Task<Void, Never>?
+  /// Start of the segment whose live steps are subscribed, or `nil` without a subscription.
+  @ObservationIgnored var liveStepsSegmentStart: Date?
   @ObservationIgnored var wasStationary = false
   @ObservationIgnored var recoveryScheduled = false
   /// Whether the current `.persistence` failure came from saving points rather than a transition,
@@ -39,6 +44,7 @@ public final class TrackingEngine {
   public init(
     store: any TrackingStore, provider: any LocationProvider,
     locationSession: any LocationSession,
+    pedometer: any PedometerProvider,
     dates: any DateProvider = SystemDateProvider(),
     configuration: TrackingConfiguration = .default,
     timeZone: @escaping @MainActor () -> TimeZone = { .current },
@@ -49,6 +55,7 @@ public final class TrackingEngine {
     self.store = store
     self.provider = provider
     self.locationSession = locationSession
+    self.pedometer = pedometer
     self.dates = dates
     self.configuration = configuration
     self.timeZone = timeZone
@@ -61,7 +68,10 @@ public final class TrackingEngine {
     await queue.run { [self] in
       guard phase == .idle, !recoveryScheduled else { return }
       isBusy = true
-      defer { isBusy = false }
+      defer {
+        isBusy = false
+        syncLiveSteps()
+      }
       startFailure = nil
       operationFailure = nil
       do {
@@ -118,12 +128,16 @@ public final class TrackingEngine {
     await queue.run { [self] in
       guard let pending = pendingTransition, pending.id == id, let liveSession else { return }
       isBusy = true
-      defer { isBusy = false }
+      defer {
+        isBusy = false
+        syncLiveSteps()
+      }
       do {
         switch pending.kind {
         case .pause:
-          try await store.pause(sessionID: liveSession.id, at: pending.date, steps: nil)
-          liveSession.pause(at: pending.date)
+          let steps = try await closingSteps(until: pending.date)
+          try await store.pause(sessionID: liveSession.id, at: pending.date, steps: steps)
+          liveSession.pause(at: pending.date, steps: steps)
           phase = .paused
           stopUpdates()
         case .finish:
@@ -131,6 +145,8 @@ public final class TrackingEngine {
         }
         pendingTransition = nil
         clearOperationFailure()
+      } catch is CancellationError {
+        // Nothing was saved. Keep the cutoff and buffered events, as after a failure.
       } catch {
         // Keep the cutoff and buffered events so the same transition can be retried or cancelled.
         report(error)
@@ -147,13 +163,48 @@ public final class TrackingEngine {
     }
   }
 
+  /// Discards the walk instead of finishing it. Valid only while a finish is pending.
+  ///
+  /// Recording continues until the discard is saved, so a failed discard can be retried or
+  /// cancelled like a failed finish without losing locations.
+  public func discardPendingFinish() async {
+    let id = pendingTransition?.id
+    await queue.run { [self] in
+      guard let pending = pendingTransition, pending.id == id, pending.kind == .finish,
+        let liveSession
+      else { return }
+      isBusy = true
+      defer {
+        isBusy = false
+        syncLiveSteps()
+      }
+      do {
+        try await store.discard(sessionID: liveSession.id)
+        // Buffered events after the cutoff belong to the discarded walk.
+        self.liveSession = nil
+        pendingTransition = nil
+        phase = .idle
+        stopUpdates()
+        locationSession.deactivate()
+        wasStationary = false
+        clearOperationFailure()
+      } catch {
+        // Keep the cutoff and buffered events so the same choice can be retried or cancelled.
+        report(error)
+      }
+    }
+  }
+
   public func resume(at date: Date) async {
     await queue.run { [self] in
       guard phase == .paused, pendingTransition == nil, let liveSession,
         date >= liveSession.lastActivity, date.timeIntervalSinceReferenceDate.isFinite
       else { return }
       isBusy = true
-      defer { isBusy = false }
+      defer {
+        isBusy = false
+        syncLiveSteps()
+      }
       do {
         guard try await activate() else { return }
         try await store.resume(sessionID: liveSession.id, at: date)
@@ -179,7 +230,10 @@ public final class TrackingEngine {
       }
       guard updatesTask == nil || waitingForAccess else { return }
       isBusy = true
-      defer { isBusy = false }
+      defer {
+        isBusy = false
+        syncLiveSteps()
+      }
       stopUpdates()
       if !waitingForAccess { phase = .recording(.searching) }
       do {
@@ -260,7 +314,8 @@ public final class TrackingEngine {
 
   func finish(at date: Date) async throws {
     guard let liveSession else { return }
-    try await store.finish(sessionID: liveSession.id, at: date, steps: nil)
+    let steps = try await closingSteps(until: date)
+    try await store.finish(sessionID: liveSession.id, at: date, steps: steps)
     lastFinishedSessionID = liveSession.id
     self.liveSession = nil
     pendingTransition = nil
@@ -268,13 +323,15 @@ public final class TrackingEngine {
     stopUpdates()
     locationSession.deactivate()
     wasStationary = false
+    syncLiveSteps()
   }
 
   func interruptIfOpen() async throws {
     guard let liveSession, liveSession.record.hasOpenSegment else { return }
     let date = liveSession.lastActivity
-    try await store.interruptSegment(sessionID: liveSession.id, at: date, steps: nil)
-    liveSession.close(at: date, reason: .interrupted)
+    let steps = try await closingSteps(until: date)
+    try await store.interruptSegment(sessionID: liveSession.id, at: date, steps: steps)
+    liveSession.close(at: date, reason: .interrupted, steps: steps)
   }
 
   func makeLive(_ record: SessionRecord) -> LiveSession {
@@ -316,6 +373,7 @@ public final class TrackingEngine {
 
   isolated deinit {
     updatesTask?.cancel()
+    liveStepsTask?.cancel()
     locationSession.deactivate()
   }
 }

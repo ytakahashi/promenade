@@ -6,6 +6,20 @@ struct AppSensors {
   let provider: any LocationProvider
   let session: any LocationSession
   let authorization: LocationAuthorizationMonitor?
+  let pedometer: any PedometerProvider
+
+  /// The pedometer defaults to one that never counts, so environments that do not opt in (tests,
+  /// previews) never show the motion permission prompt.
+  init(
+    provider: any LocationProvider, session: any LocationSession,
+    authorization: LocationAuthorizationMonitor?,
+    pedometer: any PedometerProvider = InertPedometerProvider()
+  ) {
+    self.provider = provider
+    self.session = session
+    self.authorization = authorization
+    self.pedometer = pedometer
+  }
 
   static func make(arguments: [String]) throws -> Self {
     #if DEBUG
@@ -26,7 +40,8 @@ struct AppSensors {
           return Self(
             provider: try ReplayLocationProvider(
               points: GPXParser.parse(data), speedMultiplier: options.speedMultiplier),
-            session: ReplayLocationSession(), authorization: nil)
+            session: ReplayLocationSession(), authorization: nil,
+            pedometer: ReplayPedometerProvider(measuresSteps: options.measuresSteps))
         } catch {
           throw StartupFailure(kind: .replayData, detail: error.localizedDescription)
         }
@@ -34,7 +49,7 @@ struct AppSensors {
     #endif
     return Self(
       provider: CoreLocationProvider(), session: CoreLocationSession(),
-      authorization: LocationAuthorizationMonitor())
+      authorization: LocationAuthorizationMonitor(), pedometer: CoreMotionPedometerProvider())
   }
 }
 

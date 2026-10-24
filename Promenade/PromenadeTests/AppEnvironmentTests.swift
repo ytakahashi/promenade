@@ -251,7 +251,7 @@ struct AppEnvironmentTests {
     }
     for point in points { try await dependencies.store.append(point, sessionID: id) }
     let end = start.addingTimeInterval(20)
-    try await dependencies.store.finish(sessionID: id, at: end)
+    try await dependencies.store.finish(sessionID: id, at: end, steps: nil)
 
     // Finishing saves buffered points; a fresh read context must see them with the final state.
     let finished = try #require(try read(id))

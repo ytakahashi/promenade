@@ -71,6 +71,7 @@ extension TrackingEngine {
 
   func process(_ event: LocationEvent) async {
     guard case .recording = phase, let liveSession else { return }
+    defer { syncLiveSteps() }
     if let pending = pendingTransition {
       if case .location(let point, _) = event, point.timestamp <= pending.date {
         // Delayed points preceding the user's tap are still part of the recorded segment.
@@ -105,11 +106,11 @@ extension TrackingEngine {
           wasStationary: wasStationary)
         {
           let closing = liveSession.lastActivity
+          let steps = try await closingSteps(until: closing)
           try await store.splitSegment(
-            sessionID: liveSession.id, closingAt: closing, reason: .signalGap,
-            steps: nil,
+            sessionID: liveSession.id, closingAt: closing, reason: .signalGap, steps: steps,
             nextStart: point.timestamp)
-          liveSession.close(at: closing, reason: .signalGap)
+          liveSession.close(at: closing, reason: .signalGap, steps: steps)
           liveSession.open(at: point.timestamp)
         }
         let result = try await store.append(point, sessionID: liveSession.id)
@@ -120,6 +121,8 @@ extension TrackingEngine {
         case .pendingSaveFailure(let error): reportPointSaveFailure(error)
         }
         phase = .recording(.active)
+      } catch is CancellationError {
+        // Nothing was saved for this point; cancellation is not a persistence failure.
       } catch { report(error) }
       wasStationary = stationary
     case .stationary: wasStationary = true
@@ -128,11 +131,9 @@ extension TrackingEngine {
     case .accessLost(let issue):
       phase = .recording(.waitingForAccess(issue))
       do {
-        if liveSession.record.hasOpenSegment {
-          try await store.interruptSegment(
-            sessionID: liveSession.id, at: liveSession.lastActivity, steps: nil)
-          liveSession.close(at: liveSession.lastActivity, reason: .interrupted)
-        }
+        try await interruptIfOpen()
+      } catch is CancellationError {
+        // The segment stays open; cancellation is not a persistence failure.
       } catch { report(error) }
     }
   }

@@ -13,6 +13,7 @@ final class TrackingHarness {
   let dates = TestDates()
   let session = TestLocationSession()
   let provider = TestLocationProvider()
+  let pedometer = TestPedometer()
   let store: ControlledStore
   let engine: TrackingEngine
 
@@ -28,7 +29,8 @@ final class TrackingHarness {
     store = ControlledStore(
       base: SwiftDataTrackingStore(container: container, configuration: configuration))
     engine = TrackingEngine(
-      store: store, provider: provider, locationSession: session, dates: dates,
+      store: store, provider: provider, locationSession: session, pedometer: pedometer,
+      dates: dates,
       configuration: configuration, timeZone: { TimeZone(secondsFromGMT: 0)! }, sleep: sleep)
   }
 
@@ -97,6 +99,53 @@ final class TestLocationProvider: LocationProvider, Sendable {
   var subscriptions: Int { streams.withLock { $0.count } }
   func send(_ event: LocationEvent) { _ = streams.withLock { $0.last?.yield(event) } }
   func finish(error: (any Error)? = nil) { streams.withLock { $0.last?.finish(throwing: error) } }
+}
+
+/// Counts no steps unless a test sets `count`, so tests without step expectations are unaffected.
+final class TestPedometer: PedometerProvider, Sendable {
+  private struct State {
+    var count: (@Sendable (Date, Date) -> Int?)?
+    var blocksQueries = false
+    var queries: [ClosedRange<Date>] = []
+    var liveStarts: [Date] = []
+    var live: AsyncStream<Int>.Continuation?
+    var activeLiveStreams = 0
+  }
+  private let state = Mutex(State())
+
+  var access: MotionAccess { .allowed }
+  var queries: [ClosedRange<Date>] { state.withLock { $0.queries } }
+  var liveStarts: [Date] { state.withLock { $0.liveStarts } }
+  var activeLiveStreams: Int { state.withLock { $0.activeLiveStreams } }
+
+  /// Counts one step per second of the queried interval.
+  func countSeconds() { state.withLock { $0.count = { Int($1.timeIntervalSince($0)) } } }
+  /// Queries never return, so only the engine's timeout can complete them.
+  func blockQueries() { state.withLock { $0.blocksQueries = true } }
+  /// Sends a cumulative value to the latest live subscription.
+  func sendLive(_ steps: Int) { _ = state.withLock { $0.live?.yield(steps) } }
+
+  func steps(from start: Date, to end: Date) async -> Int? {
+    let (count, blocks) = state.withLock {
+      $0.queries.append(start...end)
+      return ($0.count, $0.blocksQueries)
+    }
+    if blocks { try? await Task.sleep(for: .seconds(3600)) }
+    return count?(start, end)
+  }
+
+  func liveSteps(from start: Date) -> AsyncStream<Int> {
+    AsyncStream { continuation in
+      state.withLock {
+        $0.liveStarts.append(start)
+        $0.live = continuation
+        $0.activeLiveStreams += 1
+      }
+      continuation.onTermination = { [weak self] _ in
+        self?.state.withLock { $0.activeLiveStreams -= 1 }
+      }
+    }
+  }
 }
 
 /// A controllable await boundary verifies serialization while the underlying store remains real.
