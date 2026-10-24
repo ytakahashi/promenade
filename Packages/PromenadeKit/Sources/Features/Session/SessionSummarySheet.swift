@@ -17,7 +17,7 @@ struct SessionSummarySheet: View {
 
   var body: some View {
     NavigationStack {
-      content
+      SessionSummaryView(model: model)
         .navigationTitle(Text("Walk Summary", bundle: .module))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -26,108 +26,6 @@ struct SessionSummarySheet: View {
           }
         }
     }
-    .onAppear { model.load() }
-  }
-
-  @ViewBuilder
-  private var content: some View {
-    switch model.state {
-    case .loading:
-      ProgressView()
-    case .loaded(let summary):
-      SessionSummaryContent(summary: summary)
-    case .failed(let failure):
-      ContentUnavailableView {
-        Label {
-          title(failure)
-        } icon: {
-          Image(systemName: "exclamationmark.triangle")
-        }
-      } description: {
-        Text("The walk is saved. Retry to read it again.", bundle: .module)
-      } actions: {
-        Button {
-          model.load()
-        } label: {
-          Text("Retry", bundle: .module)
-        }
-        .buttonStyle(.borderedProminent)
-      }
-    }
-  }
-
-  private func title(_ failure: SessionSummaryModel.Failure) -> Text {
-    switch failure {
-    case .missing: Text("Walk Not Found", bundle: .module)
-    case .unfinished: Text("Walk Is Still Being Saved", bundle: .module)
-    case .readFailed: Text("Unable to Read Walk", bundle: .module)
-    }
-  }
-}
-
-private struct SessionSummaryContent: View {
-  let summary: SessionSummary
-  @Environment(\.locale) private var locale
-
-  var body: some View {
-    let formatting = MetricFormatting(locale: locale)
-    let metrics = summary.metrics
-    List {
-      Section {
-        RouteMapView(content: summary.map, camera: .fitsRoute)
-          .frame(height: 260)
-          .overlay {
-            if summary.map.segments.isEmpty {
-              Text("No route was recorded.", bundle: .module)
-                .font(.subheadline)
-                .padding(8)
-                .background(.regularMaterial, in: Capsule())
-            }
-          }
-          .listRowInsets(EdgeInsets())
-          .accessibilityIdentifier("summary.map")
-      }
-      Section {
-        row("Distance", formatting.distance(metrics.distance))
-        row(
-          "Walking time", formatting.duration(metrics.timing.walking),
-          accessibility: formatting.durationAccessibility(metrics.timing.walking))
-        row(
-          "Rest time", formatting.duration(metrics.timing.pause),
-          accessibility: formatting.durationAccessibility(metrics.timing.pause))
-        row(
-          "Interrupted time", formatting.duration(metrics.timing.interruption),
-          accessibility: formatting.durationAccessibility(metrics.timing.interruption))
-        row(
-          "Average speed",
-          formatting.speed(metersPerSecond: metrics.averageSpeed, distance: metrics.distance),
-          accessibility: formatting.speedAccessibility(
-            metersPerSecond: metrics.averageSpeed, distance: metrics.distance))
-        row(
-          "Average pace",
-          formatting.pace(secondsPerMeter: metrics.averagePace, distance: metrics.distance),
-          accessibility: formatting.paceAccessibility(
-            secondsPerMeter: metrics.averagePace, distance: metrics.distance))
-      }
-      Section {
-        row("Started", formatting.dateTime(summary.startDate, in: summary.timeZone))
-        row("Finished", formatting.dateTime(summary.endDate, in: summary.timeZone))
-      }
-    }
-    .monospacedDigit()
-  }
-
-  private func row(_ label: LocalizedStringKey, _ value: String, accessibility: String? = nil)
-    -> some View
-  {
-    LabeledContent {
-      Text(verbatim: value)
-    } label: {
-      Text(label, bundle: .module)
-    }
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel(Text(label, bundle: .module))
-    .accessibilityValue(accessibility ?? value)
   }
 }
 

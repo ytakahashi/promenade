@@ -22,10 +22,27 @@ struct TrackingMapContent {
       guard segment.acceptedPoints.count >= 2 else { return nil }
       return Segment(
         id: index,
-        coordinates: segment.acceptedPoints.map {
-          CLLocationCoordinate2D(
-            latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude)
-        })
+        coordinates: segment.acceptedPoints.map { CLLocationCoordinate2D($0.coordinate) })
     }
+  }
+}
+
+/// The first and last accepted points of a saved route, marked on its map.
+struct RouteEndpoints: Equatable {
+  let start: Coordinate
+  /// `nil` when the route has a single accepted point, which is marked only as the start.
+  let end: Coordinate?
+
+  /// `points` are the accepted points of every segment in order.
+  init?(points: [TrackPoint]) {
+    guard let first = points.first, let last = points.last else { return nil }
+    start = first.coordinate
+    end = points.count > 1 ? last.coordinate : nil
+  }
+}
+
+extension CLLocationCoordinate2D {
+  init(_ coordinate: Coordinate) {
+    self.init(latitude: coordinate.latitude, longitude: coordinate.longitude)
   }
 }

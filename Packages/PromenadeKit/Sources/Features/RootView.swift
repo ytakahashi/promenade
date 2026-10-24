@@ -1,5 +1,6 @@
 import Domain
 import Foundation
+import Persistence
 import SwiftUI
 import Tracking
 
@@ -10,11 +11,15 @@ public struct RootView: View {
   let readSession: @MainActor (UUID) throws -> SessionRecord?
   /// Owned here rather than by the tab so presentation state outlives the tracking screen.
   @State private var trackingPresentation: TrackingPresentation
+  /// Owned here so the loaded list and a pending deletion survive tab switches.
+  @State private var historyModel: HistoryModel
 
   public init(
     engine: TrackingEngine, configuration: TrackingConfiguration,
     locationAccess: LocationAccessState,
-    readSession: @escaping @MainActor (UUID) throws -> SessionRecord?
+    readSession: @escaping @MainActor (UUID) throws -> SessionRecord?,
+    listSessions: @escaping @MainActor () throws -> [SessionListItem],
+    deleter: any SessionDeleting
   ) {
     self.engine = engine
     self.configuration = configuration
@@ -23,6 +28,7 @@ public struct RootView: View {
     _trackingPresentation = State(
       initialValue: TrackingPresentation(
         shortWalkPolicy: ShortWalkPolicy(configuration: configuration)))
+    _historyModel = State(initialValue: HistoryModel(list: listSessions, deleter: deleter))
   }
 
   public var body: some View {
@@ -39,7 +45,7 @@ public struct RootView: View {
       }
       .accessibilityValue(trackingAccessibilityValue)
       Tab {
-        HistoryScreen()
+        HistoryScreen(model: historyModel, route: configuration.route, readSession: readSession)
       } label: {
         Label {
           Text("History", bundle: .module)

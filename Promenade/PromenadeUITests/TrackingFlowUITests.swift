@@ -71,6 +71,44 @@ final class TrackingFlowUITests: XCTestCase {
     XCTAssertTrue(app.buttons["Start"].waitForExistence(timeout: 5))
     XCTAssertFalse(app.navigationBars["Walk Summary"].waitForExistence(timeout: 2))
     XCTAssertEqual(app.tabBars.buttons["Tracking"].value as? String, "Not recording")
+    app.tabBars.buttons["History"].tap()
+    XCTAssertTrue(app.staticTexts["No Walks Yet"].waitForExistence(timeout: 5))
+  }
+
+  @MainActor
+  func testSavedWalkAppearsInHistoryAndOpensItsDetails() {
+    let app = launch()
+    start(app)
+    saveAndCloseSummary(app)
+    app.tabBars.buttons["History"].tap()
+    let row = app.buttons["history.row"].firstMatch
+    XCTAssertTrue(row.waitForExistence(timeout: 5))
+    row.tap()
+    XCTAssertTrue(app.navigationBars["Walk"].waitForExistence(timeout: 5))
+    let steps = app.descendants(matching: .any)["Steps"].firstMatch
+    XCTAssertTrue(steps.waitForExistence(timeout: 5))
+    XCTAssertNotEqual(steps.value as? String, "Not available")
+  }
+
+  @MainActor
+  func testDeletingAWalkFromHistoryAsksFirst() {
+    let app = launch()
+    start(app)
+    saveAndCloseSummary(app)
+    app.tabBars.buttons["History"].tap()
+    let row = app.buttons["history.row"].firstMatch
+    XCTAssertTrue(row.waitForExistence(timeout: 5))
+    row.swipeLeft()
+    app.buttons["Delete"].tap()
+    let alert = app.alerts["Delete Walk?"]
+    XCTAssertTrue(alert.waitForExistence(timeout: 5))
+    alert.buttons["Cancel"].tap()
+    XCTAssertTrue(row.waitForExistence(timeout: 5))
+    row.swipeLeft()
+    app.buttons["Delete"].tap()
+    XCTAssertTrue(alert.waitForExistence(timeout: 5))
+    alert.buttons["Delete"].tap()
+    XCTAssertTrue(app.staticTexts["No Walks Yet"].waitForExistence(timeout: 5))
   }
 
   @MainActor
@@ -122,6 +160,16 @@ final class TrackingFlowUITests: XCTestCase {
     XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 10))
     // Let a few replayed points arrive so the walk has a route.
     sleep(3)
+  }
+
+  @MainActor
+  private func saveAndCloseSummary(_ app: XCUIApplication) {
+    app.buttons["Finish"].press(forDuration: 1.6)
+    XCTAssertTrue(app.alerts["Finish Walk?"].waitForExistence(timeout: 5))
+    app.alerts.buttons["Save"].tap()
+    assertSummary(app)
+    app.navigationBars.buttons["Done"].tap()
+    XCTAssertTrue(app.buttons["Start"].waitForExistence(timeout: 5))
   }
 
   @MainActor

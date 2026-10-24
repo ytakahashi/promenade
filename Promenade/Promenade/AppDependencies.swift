@@ -21,6 +21,10 @@ struct AppDependencies {
     try Self.reader(container: container).session(id: id)
   }
 
+  func listSessions() throws -> [SessionListItem] {
+    try Self.reader(container: container).finishedSessions()
+  }
+
   static func readUnfinishedSessions(container: ModelContainer) throws -> [SessionRecord] {
     try reader(container: container).unfinishedSessions()
   }

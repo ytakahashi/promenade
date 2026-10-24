@@ -5,6 +5,8 @@ import Foundation
 struct SessionSummary {
   let id: UUID
   let map: TrackingMapContent
+  /// Where the drawn route starts and ends; `nil` when no point passed the route filter.
+  let endpoints: RouteEndpoints?
   let metrics: SessionMetrics
   let startDate: Date
   let endDate: Date
@@ -16,7 +18,9 @@ struct SessionSummary {
     guard record.state == .finished, let endDate = record.endDate else { return nil }
     let filter = RouteFilter(configuration: route)
     id = record.id
-    map = TrackingMapContent(segments: record.segments.map { filter.filter($0.points) })
+    let routes = record.segments.map { filter.filter($0.points) }
+    map = TrackingMapContent(segments: routes)
+    endpoints = RouteEndpoints(points: routes.flatMap(\.acceptedPoints))
     // The calculator is the single definition of saved-walk metrics; filtering again here keeps
     // the summary consistent with it at a one-off cost.
     metrics = SessionMetricsCalculator.metrics(for: record, filter: filter, asOf: endDate)

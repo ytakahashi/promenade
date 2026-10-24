@@ -900,6 +900,106 @@
           }
         }
       }
+    },
+    "Delete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete"
+          }
+        }
+      }
+    },
+    "Delete Walk?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Walk?"
+          }
+        }
+      }
+    },
+    "The walk and its route are deleted permanently.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The walk and its route are deleted permanently."
+          }
+        }
+      }
+    },
+    "Unable to Delete Walk": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to Delete Walk"
+          }
+        }
+      }
+    },
+    "OK": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "The walk is still saved. Try deleting it again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The walk is still saved. Try deleting it again."
+          }
+        }
+      }
+    },
+    "Unable to Read Walks": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to Read Walks"
+          }
+        }
+      }
+    },
+    "No Walks Yet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Walks Yet"
+          }
+        }
+      }
+    },
+    "Walks you finish appear here.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Walks you finish appear here."
+          }
+        }
+      }
+    },
+    "Walk": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Walk"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -33,7 +33,8 @@ private struct AppContentView: View {
       if let dependencies = environment.dependencies {
         RootView(
           engine: dependencies.engine, configuration: environment.configuration,
-          locationAccess: environment.locationAccess, readSession: dependencies.readSession)
+          locationAccess: environment.locationAccess, readSession: dependencies.readSession,
+          listSessions: dependencies.listSessions, deleter: dependencies.store)
       }
     }
   }

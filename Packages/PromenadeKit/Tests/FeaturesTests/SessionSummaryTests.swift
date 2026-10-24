@@ -44,6 +44,29 @@ struct SessionSummaryTests {
         == "America/New_York")
   }
 
+  @Test func endpointsMarkTheFirstAndLastAcceptedPointsAcrossSegments() throws {
+    let first = walk(from: 0, count: 5)
+    let last = walk(from: 100, count: 5)
+    let record = finished(segments: [
+      segment(0, from: 0, to: 20, reason: .paused, points: first),
+      segment(1, from: 50, to: 70, reason: .interrupted, points: walk(from: 50, count: 1)),
+      segment(2, from: 100, to: 120, reason: .finished, points: last),
+    ])
+    let endpoints = try #require(SessionSummary(record: record, route: .default)?.endpoints)
+    #expect(endpoints.start == first[0].coordinate)
+    #expect(endpoints.end == last[4].coordinate)
+  }
+
+  @Test func walkWithoutAcceptedPointsHasNoEndpoints() throws {
+    let empty = finished(segments: [segment(0, from: 0, to: 20, reason: .finished, points: [])])
+    #expect(try #require(SessionSummary(record: empty, route: .default)).endpoints == nil)
+    let single = finished(segments: [
+      segment(0, from: 0, to: 20, reason: .finished, points: walk(from: 0, count: 1))
+    ])
+    let endpoints = try #require(SessionSummary(record: single, route: .default)?.endpoints)
+    #expect(endpoints.end == nil)
+  }
+
   // MARK: Model
 
   @Test func modelLoadsTheSavedWalk() {

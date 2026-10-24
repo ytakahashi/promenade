@@ -1,3 +1,4 @@
+import Domain
 import MapKit
 import SwiftUI
 import Tracking
@@ -27,14 +28,17 @@ struct RouteMapView: View {
 
   let content: TrackingMapContent
   let camera: CameraPolicy
+  let endpoints: RouteEndpoints?
   @State private var position: MapCameraPosition
   @Namespace private var mapScope
 
   init(
-    content: TrackingMapContent, camera: CameraPolicy, initialPosition: MapCameraPosition? = nil
+    content: TrackingMapContent, camera: CameraPolicy, endpoints: RouteEndpoints? = nil,
+    initialPosition: MapCameraPosition? = nil
   ) {
     self.content = content
     self.camera = camera
+    self.endpoints = endpoints
     let defaultPosition: MapCameraPosition =
       switch camera {
       case .followsUser: .userLocation(followsHeading: false, fallback: .automatic)
@@ -48,6 +52,20 @@ struct RouteMapView: View {
       ForEach(content.segments) { segment in
         MapPolyline(coordinates: segment.coordinates)
           .stroke(.blue, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+      }
+      if let endpoints {
+        Marker(
+          String(localized: "Start", bundle: .module), systemImage: "flag.fill",
+          coordinate: CLLocationCoordinate2D(endpoints.start)
+        )
+        .tint(.green)
+        if let end = endpoints.end {
+          Marker(
+            String(localized: "Finish", bundle: .module), systemImage: "flag.checkered",
+            coordinate: CLLocationCoordinate2D(end)
+          )
+          .tint(.red)
+        }
       }
       if showsCurrentLocation { UserAnnotation() }
     }
