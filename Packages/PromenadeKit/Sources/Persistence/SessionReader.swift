@@ -42,6 +42,18 @@ public struct SessionReader {
     try context.fetch(unfinishedDescriptor()).map { try $0.record() }
   }
 
+  /// Finished sessions saved with older derivation logic, oldest first.
+  public func sessionIDsNeedingRecompute() throws -> [UUID] {
+    let finished = SessionState.finished.rawValue
+    let version = DerivedDataVersion.current
+    var descriptor = FetchDescriptor<WalkingSession>(
+      predicate: #Predicate { $0.stateRaw == finished && $0.derivedDataVersion < version },
+      sortBy: [SortDescriptor(\.startDate), SortDescriptor(\.id)]
+    )
+    descriptor.propertiesToFetch = [\.id]
+    return try context.fetch(descriptor).map(\.id)
+  }
+
   private func unfinishedDescriptor() -> FetchDescriptor<WalkingSession> {
     let finished = SessionState.finished.rawValue
     return FetchDescriptor(

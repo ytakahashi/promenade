@@ -4,7 +4,9 @@ import SwiftData
 
 // Conforms to `ModelActor` manually instead of using `@ModelActor`: the macro adds a public
 // `init(modelContainer:)` that would bypass the context setup below.
-public actor SwiftDataTrackingStore: TrackingStore, SessionDeleting, ModelActor {
+public actor SwiftDataTrackingStore: TrackingStore, SessionDeleting, DerivedDataRecomputing,
+  ModelActor
+{
   public nonisolated let modelContainer: ModelContainer
   public nonisolated let modelExecutor: any ModelExecutor
   private let configuration: TrackingConfiguration
@@ -162,14 +164,37 @@ public actor SwiftDataTrackingStore: TrackingStore, SessionDeleting, ModelActor 
     }
     session.endDate = date
     session.stateRaw = SessionState.finished.rawValue
+    apply(metrics, to: session)
+    cursor = nil
+    try commitTransition()
+  }
+
+  public func recomputeDerivedData(sessionID: UUID) throws -> Bool {
+    try prepare()
+    guard let session = try fetchSession(id: sessionID) else { return false }
+    // Only finish may finalize metrics of an unfinished session, regardless of its version.
+    guard session.stateRaw == SessionState.finished.rawValue else {
+      throw PersistenceError.sessionNotFinished
+    }
+    guard session.derivedDataVersion < DerivedDataVersion.current else { return false }
+    let record = try session.record()
+    guard let end = record.endDate else { throw PersistenceError.invalidStructure }
+    let metrics = SessionMetricsCalculator.metrics(
+      for: record, filter: RouteFilter(configuration: configuration.route), asOf: end)
+    apply(metrics, to: session)
+    // Actor isolation serializes this with recording. Pending points of another session are
+    // saved too; commitTransition rolls back and prepares their replay if saving fails.
+    try commitTransition()
+    return true
+  }
+
+  private func apply(_ metrics: SessionMetrics, to session: WalkingSession) {
     session.distance = metrics.distance
     session.walkingDuration = metrics.timing.walking
     session.pauseDuration = metrics.timing.pause
     session.interruptionDuration = metrics.timing.interruption
     session.steps = metrics.steps
     session.derivedDataVersion = DerivedDataVersion.current
-    cursor = nil
-    try commitTransition()
   }
 
   public func discard(sessionID: UUID) throws {
