@@ -22,6 +22,10 @@ final class AppEnvironment {
   private(set) var dependencies: AppDependencies?
   @ObservationIgnored private(set) var recoveryTask: Task<Void, Never>?
   @ObservationIgnored private(set) var launchResolver: LaunchContextResolver?
+  @ObservationIgnored private(set) var refreshTask: Task<Void, Never>?
+  @ObservationIgnored private(set) var recoveryCompletionTask: Task<Void, Never>?
+  @ObservationIgnored private var recoveryCompleted = false
+  @ObservationIgnored private var isActive = false
   @ObservationIgnored private var observedActive = false
   @ObservationIgnored private var sensors: AppSensors?
   @ObservationIgnored private let makeSensors: @MainActor () throws -> AppSensors
@@ -30,6 +34,8 @@ final class AppEnvironment {
     @MainActor (ModelContainer) throws -> [SessionRecord]
   @ObservationIgnored private let makeLaunchResolver:
     @MainActor (TimeInterval) -> LaunchContextResolver
+
+  @ObservationIgnored private let readRecomputeIDs: @MainActor (ModelContainer) throws -> [UUID]
 
   var locationAccess: LocationAccessState {
     guard let monitor = sensors?.authorization else { return .available }
@@ -49,6 +55,9 @@ final class AppEnvironment {
     readUnfinished: @escaping @MainActor (ModelContainer) throws -> [SessionRecord] = {
       try AppDependencies.readUnfinishedSessions(container: $0)
     },
+    readRecomputeIDs: @escaping @MainActor (ModelContainer) throws -> [UUID] = {
+      try AppDependencies.readRecomputeIDs(container: $0)
+    },
     makeLaunchResolver: @escaping @MainActor (TimeInterval) -> LaunchContextResolver = {
       LaunchContextResolver(timeout: $0)
     }
@@ -57,6 +66,7 @@ final class AppEnvironment {
     self.makeContainer = makeContainer
     self.makeSensors = makeSensors
     self.readUnfinished = readUnfinished
+    self.readRecomputeIDs = readRecomputeIDs
     self.makeLaunchResolver = makeLaunchResolver
     prepareDependencies()
   }
@@ -85,6 +95,14 @@ final class AppEnvironment {
         engine: dependencies.engine,
         readUnfinishedSessions: { try readUnfinished(dependencies.container) }
       ).beginRecovery(resolvingLaunch: resolver)
+      if let recoveryTask {
+        recoveryCompletionTask = Task { [weak self] in
+          await recoveryTask.value
+          guard !Task.isCancelled, !recoveryTask.isCancelled, let self else { return }
+          self.recoveryCompleted = true
+          self.startRefreshIfReady()
+        }
+      }
       launchResolver = resolver
       // Ready means recovery was handed to the engine, not that authorization has completed.
       state = .ready
@@ -102,12 +120,19 @@ final class AppEnvironment {
 
   @discardableResult
   func didEnterBackground() -> Task<Void, Never>? {
+    // Only background ends the attempt. Inactive is frequent (system alerts, Control Center)
+    // while the app stays in the foreground, and would otherwise skip recomputation until the
+    // next launch.
+    isActive = false
+    refreshTask?.cancel()
     guard let engine = dependencies?.engine else { return nil }
     // This task outlives the view and does not wait for recovery's authorization result.
     return Task { await engine.flush() }
   }
 
   func didBecomeActive() {
+    isActive = true
+    startRefreshIfReady()
     if !observedActive {
       observedActive = true
       if let resolver = launchResolver {
@@ -124,6 +149,12 @@ final class AppEnvironment {
     }
   }
 
+  private func startRefreshIfReady() {
+    guard recoveryCompleted, isActive, refreshTask == nil, let dependencies else { return }
+    // Keep the task even after completion: interruptions are retried only on the next launch.
+    refreshTask = Task { await dependencies.refresher.run() }
+  }
+
   private func prepareDependencies() {
     do {
       if sensors == nil { sensors = try makeSensors() }
@@ -138,7 +169,8 @@ final class AppEnvironment {
     guard let sensors else { return }
     do {
       dependencies = AppDependencies(
-        container: try makeContainer(), sensors: sensors, configuration: configuration)
+        container: try makeContainer(), sensors: sensors, configuration: configuration,
+        readRecomputeIDs: readRecomputeIDs)
       state = .waitingForLaunch
     } catch let failure as StartupFailure {
       state = .failed(failure)
@@ -147,17 +179,35 @@ final class AppEnvironment {
     }
   }
 
+  isolated deinit {
+    refreshTask?.cancel()
+    recoveryCompletionTask?.cancel()
+  }
+
   /// Debug builds can store walks at `-StoreURL` so UI tests never touch the regular store. An
   /// invalid option is reported rather than silently falling back to the regular store.
   static func makeContainer(arguments: [String]) throws -> ModelContainer {
     #if DEBUG
       let url: URL?
+      let seedCount: Int?
       do {
         url = try StoreLaunchOptions.parse(arguments)
+        seedCount = try SeedLaunchOptions.parse(arguments)
       } catch {
         throw StartupFailure(kind: .storeArguments, detail: error.localizedDescription)
       }
-      if let url { return try ModelContainerFactory.make(url: url) }
+      // Seeding must never write generated walks into the user's regular store.
+      if seedCount != nil, url == nil {
+        throw StartupFailure(kind: .storeArguments, detail: "-SeedSessions requires -StoreURL.")
+      }
+      if let url {
+        let container = try ModelContainerFactory.make(url: url)
+        if let seedCount {
+          try DebugSessionSeeder.seed(
+            count: seedCount, container: container, now: Date(), calendar: .current)
+        }
+        return container
+      }
     #endif
     return try ModelContainerFactory.make()
   }

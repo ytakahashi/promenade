@@ -12,7 +12,7 @@ build:
 build-release:
 	xcodebuild build -project Promenade/Promenade.xcodeproj -scheme Promenade -configuration Release -destination '$(DESTINATION)' -quiet
 	@app="$$(xcodebuild -project Promenade/Promenade.xcodeproj -scheme Promenade -configuration Release -destination '$(DESTINATION)' -showBuildSettings 2>/dev/null | awk -F' = ' '/ TARGET_BUILD_DIR = /{d=$$2} / WRAPPER_NAME = /{w=$$2} END{print d"/"w}')"; \
-	if grep -rlaE -- '-(ReplayGPX|ReplaySpeed|ReplaySteps|StoreURL)' "$$app"; then \
+	if grep -rlaE -- '-(ReplayGPX|ReplaySpeed|ReplaySteps|StoreURL|SeedSessions)' "$$app"; then \
 		echo "Release build contains Debug-only launch options" >&2; exit 1; \
 	fi; \
 	echo "Release build has no Debug-only launch options: $$app"

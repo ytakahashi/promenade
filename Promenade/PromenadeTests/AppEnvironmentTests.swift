@@ -407,6 +407,203 @@ struct AppEnvironmentTests {
     }
   #endif
 
+  @Test(arguments: [false, true])
+  func refreshWaitsForRecoveryAndActiveRegardlessOfOrder(activeFirst: Bool) async throws {
+    var reads = 0
+    let environment = AppEnvironment(
+      makeContainer: { try ModelContainerFactory.make(inMemory: true) },
+      makeSensors: {
+        AppSensors(provider: IdleProvider(), session: StubLocationSession(), authorization: nil)
+      },
+      readRecomputeIDs: { _ in
+        reads += 1
+        return [UUID()]
+      })
+    if activeFirst { environment.didBecomeActive() }
+    #expect(environment.refreshTask == nil)
+    environment.beginRecovery(launch: .foreground)
+    // Ready is published before recovery finishes and must not start recomputation.
+    #expect(environment.state == .ready)
+    #expect(environment.refreshTask == nil)
+    await environment.recoveryCompletionTask?.value
+    if !activeFirst {
+      #expect(environment.refreshTask == nil)
+      environment.didBecomeActive()
+    }
+    let task = try #require(environment.refreshTask)
+    await task.value
+    #expect(reads == 1)
+    await environment.didEnterBackground()?.value
+    environment.didBecomeActive()
+    await environment.refreshTask?.value
+    #expect(reads == 1)
+  }
+
+  @Test func backgroundCancelsRefreshWithoutRestart() async throws {
+    var reads = 0
+    let environment = AppEnvironment(
+      makeContainer: { try ModelContainerFactory.make(inMemory: true) },
+      makeSensors: {
+        AppSensors(provider: IdleProvider(), session: StubLocationSession(), authorization: nil)
+      },
+      readRecomputeIDs: { _ in
+        reads += 1
+        return []
+      })
+    environment.beginRecovery(launch: .foreground)
+    await environment.recoveryCompletionTask?.value
+    environment.didBecomeActive()
+    let refresh = try #require(environment.refreshTask)
+    // Cancel before the scheduled task runs, covering an active/background transition in one turn.
+    let flush = environment.didEnterBackground()
+    #expect(refresh.isCancelled)
+    await refresh.value
+    await flush?.value
+    environment.didBecomeActive()
+    await environment.refreshTask?.value
+    #expect(reads == 0)
+    #expect(environment.refreshTask?.isCancelled == true)
+  }
+
+  @Test func startInProgressEndsRefreshBeforeReading() async throws {
+    let session = StubLocationSession()
+    var reads = 0
+    let environment = AppEnvironment(
+      makeContainer: { try ModelContainerFactory.make(inMemory: true) },
+      makeSensors: { AppSensors(provider: IdleProvider(), session: session, authorization: nil) },
+      readRecomputeIDs: { _ in
+        reads += 1
+        return []
+      })
+    let dependencies = try #require(environment.dependencies)
+    environment.beginRecovery(launch: .foreground)
+    await environment.recoveryCompletionTask?.value
+    session.holdActivation = true
+    let start = Task { await dependencies.engine.start() }
+    await session.waitUntilActivating()
+    // The engine stays idle until the session is created, so only isBusy reveals the start.
+    #expect(dependencies.engine.phase == .idle)
+    #expect(dependencies.engine.isBusy)
+    environment.didBecomeActive()
+    await environment.refreshTask?.value
+    #expect(reads == 0)
+    session.releaseActivation()
+    await start.value
+  }
+
+  @Test func backgroundAfterActiveWhileRecoveringDefersRefreshUntilNextActive() async throws {
+    let session = StubLocationSession()
+    session.holdActivation = true
+    let container = try ModelContainerFactory.make(inMemory: true)
+    var reads = 0
+    let environment = AppEnvironment(
+      makeContainer: { container },
+      makeSensors: { AppSensors(provider: IdleProvider(), session: session, authorization: nil) },
+      readRecomputeIDs: { _ in
+        reads += 1
+        return []
+      })
+    let dependencies = try #require(environment.dependencies)
+    try await dependencies.store.createSession(id: UUID(), startDate: Date(), timeZone: .current)
+    environment.beginRecovery(launch: .background)
+    await session.waitUntilActivating()
+    environment.didBecomeActive()
+    await environment.didEnterBackground()?.value
+    session.releaseActivation()
+    await environment.recoveryCompletionTask?.value
+    #expect(environment.refreshTask == nil)
+    #expect(reads == 0)
+    environment.didBecomeActive()
+    await environment.refreshTask?.value
+    // A restored recording consumes the attempt without fetching. Finishing must not retry it.
+    #expect(environment.refreshTask != nil)
+    #expect(reads == 0)
+    #expect(dependencies.engine.requestFinish(at: Date()))
+    await dependencies.engine.confirmPendingTransition()
+    await environment.didEnterBackground()?.value
+    environment.didBecomeActive()
+    await environment.refreshTask?.value
+    #expect(reads == 0)
+  }
+
+  @Test func failedRecoveryReadDoesNotConsumeRefreshBeforeRetry() async throws {
+    var recoveryReads = 0
+    var refreshReads = 0
+    let environment = AppEnvironment(
+      makeContainer: { try ModelContainerFactory.make(inMemory: true) },
+      makeSensors: {
+        AppSensors(provider: IdleProvider(), session: StubLocationSession(), authorization: nil)
+      },
+      readUnfinished: { _ in
+        recoveryReads += 1
+        if recoveryReads == 1 { throw Failure.injected }
+        return []
+      },
+      readRecomputeIDs: { _ in
+        refreshReads += 1
+        return []
+      })
+    environment.didBecomeActive()
+    environment.beginRecovery(launch: .foreground)
+    #expect(environment.refreshTask == nil)
+    environment.retry()
+    await environment.recoveryCompletionTask?.value
+    await environment.refreshTask?.value
+    #expect(refreshReads == 1)
+  }
+
+  #if DEBUG
+    @Test(arguments: [
+      ["-SeedSessions", "3"], ["-SeedSessions", "0"], ["-SeedSessions"],
+      ["-SeedSessions", "1", "-SeedSessions", "2"],
+    ])
+    func invalidSeedOptionsFailBeforeCreatingDependencies(arguments: [String]) {
+      let environment = AppEnvironment(
+        makeContainer: { try AppEnvironment.makeContainer(arguments: arguments) },
+        makeSensors: {
+          AppSensors(provider: IdleProvider(), session: StubLocationSession(), authorization: nil)
+        })
+      guard case .failed(let failure) = environment.state else {
+        Issue.record("Expected a seed argument failure")
+        return
+      }
+      #expect(failure.kind == .storeArguments)
+      #expect(environment.dependencies == nil)
+      #expect(environment.recoveryTask == nil)
+      if arguments == ["-SeedSessions", "3"] {
+        #expect(failure.detail == "-SeedSessions requires -StoreURL.")
+      }
+    }
+
+    @Test func seedIsVisibleBeforeRecoveryAndReopeningDoesNotAddSessions() async throws {
+      let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString)
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+      defer { try? FileManager.default.removeItem(at: directory) }
+      let arguments = [
+        "-StoreURL", directory.appendingPathComponent("walks.store").path, "-SeedSessions", "5",
+      ]
+      let environment = AppEnvironment(
+        makeContainer: { try AppEnvironment.makeContainer(arguments: arguments) },
+        makeSensors: {
+          AppSensors(provider: IdleProvider(), session: StubLocationSession(), authorization: nil)
+        },
+        readUnfinished: { container in
+          let reader = SessionReader(context: ModelContext(container))
+          #expect(try reader.finishedSessions().count == 5)
+          #expect(try reader.sessionIDsNeedingRecompute().isEmpty)
+          return try reader.unfinishedSessions()
+        })
+      let dependencies = try #require(environment.dependencies)
+      let before = try dependencies.listSessions()
+      #expect(before.count == 5)
+      environment.beginRecovery(launch: .foreground)
+      await environment.recoveryCompletionTask?.value
+      let reopened = try AppEnvironment.makeContainer(arguments: arguments)
+      #expect(try SessionReader(context: ModelContext(reopened)).finishedSessions() == before)
+    }
+  #endif
+
   private func makeEnvironment() throws -> AppEnvironment {
     AppEnvironment(
       makeContainer: { try ModelContainerFactory.make(inMemory: true) },
