@@ -13,6 +13,8 @@ public struct RootView: View {
   @State private var trackingPresentation: TrackingPresentation
   /// Owned here so the loaded list and a pending deletion survive tab switches.
   @State private var historyModel: HistoryModel
+  /// Keep the selected statistics period and metric across tab switches.
+  @State private var statisticsModel: StatisticsModel
   @State private var settingsModel: SettingsModel
 
   public init(
@@ -32,6 +34,7 @@ public struct RootView: View {
       initialValue: TrackingPresentation(
         shortWalkPolicy: ShortWalkPolicy(configuration: configuration)))
     _historyModel = State(initialValue: HistoryModel(list: listSessions, deleter: deleter))
+    _statisticsModel = State(initialValue: StatisticsModel(list: listSessions))
     _settingsModel = State(
       initialValue: SettingsModel(infoDictionary: infoDictionary, motionAccess: motionAccess))
   }
@@ -61,7 +64,7 @@ public struct RootView: View {
         }
       }
       Tab {
-        StatisticsScreen()
+        StatisticsScreen(model: statisticsModel)
       } label: {
         Label {
           Text("Statistics", bundle: .module)

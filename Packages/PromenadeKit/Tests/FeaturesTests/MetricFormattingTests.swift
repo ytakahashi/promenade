@@ -74,6 +74,21 @@ struct MetricFormattingTests {
     #expect(formatting.duration(-1) == "--")
   }
 
+  @Test func aggregateDurationTruncatesSecondsAndDoesNotWrapHours() {
+    let formatting = MetricFormatting(locale: Locale(identifier: "de_DE"))
+    let cases: [(Double, String)] = [
+      (0, "0m"), (59.99, "0m"), (60, "1m"), (2820, "47m"),
+      (3599.99, "59m"), (16680, "4h 38m"), (360_060, "100h 1m"),
+      (4_442_460, "1,234h 1m"),
+    ]
+    for (seconds, expected) in cases {
+      #expect(formatting.aggregateDuration(seconds) == expected)
+    }
+    for value in [Double.nan, .infinity, -.infinity, -1, .greatestFiniteMagnitude] {
+      #expect(formatting.aggregateDuration(value) == "--")
+    }
+  }
+
   @Test func accessibilityDescribesDurationsAndPace() {
     let metric = MetricFormatting(locale: Locale(identifier: "ja_JP"))
     #expect(metric.durationAccessibility(90_000).contains("25 hours"))

@@ -42,6 +42,15 @@ struct MetricFormatting {
     return "\(seconds / 3600):\(padded(minutes % 60)):\(remainder)"
   }
 
+  func aggregateDuration(_ interval: TimeInterval) -> String {
+    guard let seconds = wholeSeconds(interval, rounding: .down) else { return "--" }
+    // UnitsFormatStyle accepts one locale for both units and numbers. Keep English units,
+    // including English digit grouping for large hour counts, regardless of device locale.
+    return Duration.seconds(seconds / 60 * 60).formatted(
+      .units(allowed: [.hours, .minutes], width: .narrow)
+        .locale(Locale(identifier: "en_US")))
+  }
+
   func durationAccessibility(_ interval: TimeInterval) -> String {
     guard let seconds = wholeSeconds(interval, rounding: .down) else {
       return String(localized: "Not available", bundle: .module)

@@ -76,30 +76,9 @@ struct HistoryScreen: View {
     case .loading:
       ProgressView()
     case .failed:
-      ContentUnavailableView {
-        Label {
-          Text("Unable to Read Walks", bundle: .module)
-        } icon: {
-          Image(systemName: "exclamationmark.triangle")
-        }
-      } actions: {
-        Button {
-          model.load()
-        } label: {
-          Text("Retry", bundle: .module)
-        }
-        .buttonStyle(.borderedProminent)
-      }
+      WalksReadFailureView(retry: model.load)
     case .loaded(let sections) where sections.isEmpty:
-      ContentUnavailableView {
-        Label {
-          Text("No Walks Yet", bundle: .module)
-        } icon: {
-          Image(systemName: "figure.walk")
-        }
-      } description: {
-        Text("Walks you finish appear here.", bundle: .module)
-      }
+      NoWalksView()
     case .loaded(let sections):
       List {
         ForEach(sections) { section in
