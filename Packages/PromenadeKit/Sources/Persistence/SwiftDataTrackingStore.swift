@@ -306,7 +306,9 @@ public actor SwiftDataTrackingStore: TrackingStore, SessionDeleting, DerivedData
   private func insert(_ point: TrackPoint, into segment: Segment) {
     let model = LocationPoint(point: point)
     modelContext.insert(model)
-    segment.points.append(model)
+    // Set the to-one side: appending to `segment.points` costs more as the segment grows, and this
+    // runs for every received point.
+    model.segment = segment
   }
 
   /// Saves a state transition together with any pending points.
