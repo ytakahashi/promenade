@@ -64,7 +64,8 @@ public struct RootView: View {
         }
       }
       Tab {
-        StatisticsScreen(model: statisticsModel)
+        StatisticsScreen(
+          model: statisticsModel, route: configuration.route, readSession: readSession)
       } label: {
         Label {
           Text("Statistics", bundle: .module)

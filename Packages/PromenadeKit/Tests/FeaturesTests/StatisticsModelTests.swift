@@ -84,15 +84,15 @@ struct StatisticsModelTests {
     let model = makeModel(source)
     model.load()
     let original = try #require(model.statistics)
-    model.selectBucket(containing: date(20, hour: 14))
+    model.toggleBucket(containing: date(20, hour: 14))
     #expect(model.selectedBucketStart == date(20))
     #expect(model.statistics == original)
     model.setMetric(.steps)
     #expect(model.selectedBucketStart == nil)
     #expect(model.statistics == original)
-    model.selectBucket(containing: original.period.interval.end)
+    model.toggleBucket(containing: original.period.interval.end)
     #expect(model.selectedBucketStart == nil)
-    model.selectBucket(containing: date(20))
+    model.toggleBucket(containing: date(20))
     model.setGranularity(.month)
     #expect(model.selectedBucketStart == nil)
     #expect(model.anchorDate == date(24, hour: 12))
@@ -100,6 +100,25 @@ struct StatisticsModelTests {
     #expect(model.period?.interval.start == date(24))
     #expect(model.metric == .steps)
     #expect(source.reads == 1)
+  }
+
+  @Test func tappingTheSelectedBucketOrOutsideThePeriodClearsSelection() throws {
+    let model = makeModel(StatisticsSource([item(20)]))
+    model.load()
+    let periodEnd = try #require(model.period?.interval.end)
+    model.toggleBucket(containing: date(20, hour: 14))
+    #expect(model.selectedBucketStart == date(20))
+    // A different instant inside the same bucket is still the same bucket.
+    model.toggleBucket(containing: date(20, hour: 9))
+    #expect(model.selectedBucketStart == nil)
+    model.toggleBucket(containing: date(20, hour: 9))
+    model.toggleBucket(containing: date(21, hour: 9))
+    #expect(model.selectedBucketStart == date(21))
+    model.toggleBucket(containing: periodEnd)
+    #expect(model.selectedBucketStart == nil)
+    model.toggleBucket(containing: date(21))
+    model.toggleBucket(containing: nil)
+    #expect(model.selectedBucketStart == nil)
   }
 
   @Test func granularityKeepsThePastPeriodStartAsAnchor() {
@@ -175,7 +194,7 @@ struct StatisticsModelTests {
     model.moveBackward()
     model.moveBackward()
     model.moveBackward()
-    model.selectBucket(containing: date(2))
+    model.toggleBucket(containing: date(2))
     source.items = [item(20)]
     model.load()
     #expect(model.selectedBucketStart == nil)

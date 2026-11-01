@@ -93,8 +93,11 @@ final class StatisticsModel {
     selectedBucketStart = nil
   }
 
-  func selectBucket(containing date: Date?) {
-    selectedBucketStart = date.flatMap { statistics?.bucket(containing: $0)?.start }
+  /// Selects the bucket under a tap. Tapping the selected bucket or outside the period clears the
+  /// selection, since tap selection has no release that could dismiss it.
+  func toggleBucket(containing date: Date?) {
+    let start = date.flatMap { statistics?.bucket(containing: $0)?.start }
+    selectedBucketStart = start == selectedBucketStart ? nil : start
   }
 
   func moveBackward() { move(by: -1) }

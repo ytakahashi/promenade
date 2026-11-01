@@ -6,6 +6,8 @@ struct StatisticsSummaryCard: View {
   let calendar: Calendar
   let metric: StatisticsMetric
   let setMetric: (StatisticsMetric) -> Void
+  let selectedBucketStart: Date?
+  let toggleBucket: (Date?) -> Void
   @Environment(\.locale) private var locale
 
   var body: some View {
@@ -55,6 +57,9 @@ struct StatisticsSummaryCard: View {
       .accessibilityElement(children: .combine)
       .font(.subheadline)
       .foregroundStyle(.secondary)
+      StatisticsChart(
+        statistics: statistics, calendar: calendar, metric: metric,
+        selectedBucketStart: selectedBucketStart, toggleBucket: toggleBucket)
     }
     .padding()
     .frame(maxWidth: .infinity, alignment: .leading)

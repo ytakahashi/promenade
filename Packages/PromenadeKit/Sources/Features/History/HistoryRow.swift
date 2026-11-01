@@ -2,15 +2,21 @@ import Domain
 import SwiftUI
 
 struct HistoryRow: View {
+  enum Style { case dateTime, timeOnly }
   let item: SessionListItem
+  var style: Style = .dateTime
   @Environment(\.locale) private var locale
 
   var body: some View {
     let formatting = MetricFormatting(locale: locale)
     let timeZone = TimeZone(identifier: item.timeZoneIdentifier) ?? .current
     VStack(alignment: .leading, spacing: 4) {
-      Text(verbatim: formatting.dateTime(item.startDate, in: timeZone))
-        .font(.headline)
+      Text(
+        verbatim: style == .timeOnly
+          ? formatting.time(item.startDate, in: timeZone)
+          : formatting.dateTime(item.startDate, in: timeZone)
+      )
+      .font(.headline)
       ViewThatFits(in: .horizontal) {
         HStack(spacing: 16) { metrics(formatting) }
         VStack(alignment: .leading, spacing: 2) { metrics(formatting) }

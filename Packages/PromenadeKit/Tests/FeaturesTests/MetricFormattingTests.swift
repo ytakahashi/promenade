@@ -119,4 +119,17 @@ struct MetricFormattingTests {
     #expect(otherZone.hasPrefix(sameZone))
     #expect(otherZone.count > sameZone.count)
   }
+
+  @Test func timeOnlyKeepsTheRecordedTimeAndTravelZoneSuffix() throws {
+    let formatting = MetricFormatting(locale: Locale(identifier: "en_US"))
+    let date = Date(timeIntervalSince1970: 1_767_225_600)
+    let tokyo = try #require(TimeZone(identifier: "Asia/Tokyo"))
+    let utc = try #require(TimeZone(secondsFromGMT: 0))
+    let local = formatting.time(date, in: tokyo, deviceTimeZone: tokyo)
+    #expect(local.contains("9:00"))
+    #expect(!local.contains("2026"))
+    #expect(
+      formatting.time(date, in: tokyo, deviceTimeZone: utc)
+        == "\(local) \(tokyo.abbreviation(for: date)!)")
+  }
 }

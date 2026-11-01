@@ -1,7 +1,7 @@
 import Domain
 import SwiftUI
 
-/// A saved walk opened from History; the same content as the post-walk summary.
+/// A saved walk opened from History or Statistics; the same content as the post-walk summary.
 struct SessionDetailScreen: View {
   @State private var model: SessionSummaryModel
 

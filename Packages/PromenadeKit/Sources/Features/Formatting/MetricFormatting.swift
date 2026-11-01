@@ -115,11 +115,25 @@ struct MetricFormatting {
       ?? String(localized: "Not available", bundle: .module)
   }
 
-  /// Formats `date` in the time zone it was recorded in. The zone is named only when it differs
-  /// from the device's, where the wall-clock time alone would be misread.
   func dateTime(_ date: Date, in timeZone: TimeZone, deviceTimeZone: TimeZone = .current) -> String
   {
-    var style = Date.FormatStyle(date: .abbreviated, time: .shortened, locale: locale)
+    recorded(
+      date, style: Date.FormatStyle(date: .abbreviated, time: .shortened, locale: locale),
+      in: timeZone, deviceTimeZone: deviceTimeZone)
+  }
+
+  func time(_ date: Date, in timeZone: TimeZone, deviceTimeZone: TimeZone = .current) -> String {
+    recorded(
+      date, style: Date.FormatStyle(date: .omitted, time: .shortened, locale: locale),
+      in: timeZone, deviceTimeZone: deviceTimeZone)
+  }
+
+  /// Formats `date` in the time zone it was recorded in. The zone is named only when it differs
+  /// from the device's, where the wall-clock time alone would be misread.
+  private func recorded(
+    _ date: Date, style: Date.FormatStyle, in timeZone: TimeZone, deviceTimeZone: TimeZone
+  ) -> String {
+    var style = style
     style.timeZone = timeZone
     let text = date.formatted(style)
     guard timeZone.identifier != deviceTimeZone.identifier else { return text }
