@@ -46,6 +46,104 @@ struct StepTrackingTests {
       SessionMetricsCalculator.metrics(for: saved, filter: .init(), asOf: date(110)).steps == 110)
   }
 
+  // The test pedometer reports unmeasured steps until `countSeconds()` is called.
+
+  @Test func finishRecoversStepsOfSegmentsWhoseQueryFailedEarlier() async throws {
+    let h = try TrackingHarness()
+    await h.engine.start()
+    h.engine.requestPause(at: date(20))
+    await h.engine.confirmPendingTransition()
+    await h.engine.resume(at: date(30))
+    h.pedometer.countSeconds()
+    h.engine.requestFinish(at: date(40))
+    await h.engine.confirmPendingTransition()
+    let saved = try await h.record()
+    #expect(saved.segments.map(\.steps) == [20, 10])
+    #expect(h.pedometer.queries == [date(0)...date(20), date(30)...date(40), date(0)...date(20)])
+    #expect(
+      SessionMetricsCalculator.metrics(for: saved, filter: .init(), asOf: date(40)).steps == 30)
+  }
+
+  @Test func recoveredSignalGapStepsIncludeTheGap() async throws {
+    let h = try TrackingHarness()
+    await h.engine.start()
+    await h.send(point(1))
+    await h.send(point(100))
+    h.pedometer.countSeconds()
+    h.engine.requestFinish(at: date(110))
+    await h.engine.confirmPendingTransition()
+    #expect(try await h.record().segments.map(\.steps) == [100, 10])
+    #expect(h.pedometer.queries.last == date(0)...date(100))
+  }
+
+  @Test func finishWhilePausedRecoversSteps() async throws {
+    let h = try TrackingHarness()
+    await h.engine.start()
+    h.engine.requestPause(at: date(20))
+    await h.engine.confirmPendingTransition()
+    h.pedometer.countSeconds()
+    h.engine.requestFinish(at: date(30))
+    await h.engine.confirmPendingTransition()
+    #expect(try await h.record().segments.map(\.steps) == [20])
+  }
+
+  @Test func failedClosingQuerySkipsRecovery() async throws {
+    let h = try TrackingHarness()
+    await h.engine.start()
+    h.engine.requestPause(at: date(20))
+    await h.engine.confirmPendingTransition()
+    await h.engine.resume(at: date(30))
+    h.engine.requestFinish(at: date(40))
+    await h.engine.confirmPendingTransition()
+    #expect(try await h.record().segments.map(\.steps) == [nil, nil])
+    #expect(h.pedometer.queries == [date(0)...date(20), date(30)...date(40)])
+  }
+
+  @Test func recoveryStopsAtTheFirstFailure() async throws {
+    let h = try TrackingHarness()
+    await h.engine.start()
+    h.engine.requestPause(at: date(20))
+    await h.engine.confirmPendingTransition()
+    await h.engine.resume(at: date(30))
+    h.engine.requestPause(at: date(40))
+    await h.engine.confirmPendingTransition()
+    h.engine.requestFinish(at: date(50))
+    await h.engine.confirmPendingTransition()
+    #expect(h.engine.phase == .idle)
+    #expect(try await h.record().segments.map(\.steps) == [nil, nil])
+    #expect(h.pedometer.queries == [date(0)...date(20), date(30)...date(40), date(0)...date(20)])
+  }
+
+  @Test func slowRecoveryFinishesUnmeasuredWithoutBlocking() async throws {
+    let h = try TrackingHarness(sleep: { _ in })
+    await h.engine.start()
+    h.engine.requestPause(at: date(20))
+    await h.engine.confirmPendingTransition()
+    h.pedometer.blockQueries()
+    h.engine.requestFinish(at: date(30))
+    await h.engine.confirmPendingTransition()
+    #expect(h.engine.phase == .idle)
+    #expect(try await h.record().segments.map(\.steps) == [nil])
+  }
+
+  @Test func cancellingFinishDuringRecoveryKeepsThePendingTransition() async throws {
+    let h = try TrackingHarness()
+    await h.engine.start()
+    h.engine.requestPause(at: date(20))
+    let pausing = Task { await h.engine.confirmPendingTransition() }
+    await eventually { h.pedometer.queries.count == 1 }
+    await pausing.value
+    h.pedometer.blockQueries()
+    h.engine.requestFinish(at: date(30))
+    let finishing = Task { await h.engine.confirmPendingTransition() }
+    await eventually { h.pedometer.queries.count == 2 }
+    finishing.cancel()
+    await finishing.value
+    #expect(h.engine.pendingTransition?.kind == .finish)
+    #expect(h.engine.phase == .paused)
+    #expect(await !h.store.calls.contains(.finish))
+  }
+
   @Test func slowQuerySavesUnmeasuredStepsWithoutBlockingTheTransition() async throws {
     let h = try TrackingHarness(sleep: { _ in })
     h.pedometer.blockQueries()

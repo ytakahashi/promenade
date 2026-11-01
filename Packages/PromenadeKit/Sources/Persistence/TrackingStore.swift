@@ -33,10 +33,21 @@ public protocol TrackingStore: Actor {
   func interruptSegment(sessionID: UUID, at date: Date, steps: Int?) async throws
   /// Opens a segment in a recording session that currently has none open.
   func openSegment(sessionID: UUID, at date: Date) async throws
-  func finish(sessionID: UUID, at date: Date, steps: Int?) async throws
+  /// - Parameter recoveredSteps: Steps by segment index for closed segments still unmeasured.
+  ///   Saved with the finish, so the session total includes them. Measured segments keep their
+  ///   steps.
+  func finish(
+    sessionID: UUID, at date: Date, steps: Int?, recoveredSteps: [Int: Int]
+  ) async throws
   /// Deletes the session in any state with its segments and points. Used only to discard a walk
   /// being finished; a missing session is not an error.
   func discard(sessionID: UUID) async throws
   func flush() async throws
   func loadSession(id: UUID) async throws -> SessionRecord?
+}
+
+extension TrackingStore {
+  public func finish(sessionID: UUID, at date: Date, steps: Int?) async throws {
+    try await finish(sessionID: sessionID, at: date, steps: steps, recoveredSteps: [:])
+  }
 }

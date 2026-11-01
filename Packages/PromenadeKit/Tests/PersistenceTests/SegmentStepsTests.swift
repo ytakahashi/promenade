@@ -40,6 +40,38 @@ struct SegmentStepsTests {
     try Fixtures.read(id, in: container) { #expect($0.steps == nil) }
   }
 
+  @Test func recoveredStepsFillUnmeasuredSegmentsAndCountTowardTheTotal() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let store = SwiftDataTrackingStore(container: container)
+    let id = UUID()
+    try await store.createSession(id: id, startDate: Fixtures.start, timeZone: Fixtures.timeZone)
+    try await store.splitSegment(
+      sessionID: id, closingAt: Fixtures.date(10), reason: .signalGap, steps: nil,
+      nextStart: Fixtures.date(100))
+    try await store.interruptSegment(sessionID: id, at: Fixtures.date(110), steps: 20)
+    try await store.openSegment(sessionID: id, at: Fixtures.date(200))
+    try await store.finish(
+      sessionID: id, at: Fixtures.date(300), steps: 5,
+      // Measured segment 1, the open segment 2, and unknown segment 9 must be left alone.
+      recoveredSteps: [0: 7, 1: 99, 2: 99, 9: 99])
+    #expect(try Fixtures.record(id, in: container).segments.map(\.steps) == [7, 20, 5])
+    try Fixtures.read(id, in: container) { #expect($0.steps == 32) }
+  }
+
+  @Test func partlyRecoveredStepsLeaveTheTotalUnmeasured() async throws {
+    let container = try ModelContainerFactory.make(inMemory: true)
+    let store = SwiftDataTrackingStore(container: container)
+    let id = UUID()
+    try await store.createSession(id: id, startDate: Fixtures.start, timeZone: Fixtures.timeZone)
+    try await store.interruptSegment(sessionID: id, at: Fixtures.date(10), steps: nil)
+    try await store.openSegment(sessionID: id, at: Fixtures.date(20))
+    try await store.interruptSegment(sessionID: id, at: Fixtures.date(30), steps: nil)
+    try await store.finish(
+      sessionID: id, at: Fixtures.date(40), steps: nil, recoveredSteps: [0: 7])
+    #expect(try Fixtures.record(id, in: container).segments.map(\.steps) == [7, nil])
+    try Fixtures.read(id, in: container) { #expect($0.steps == nil) }
+  }
+
   @Test func finishWithoutOpenSegmentIgnoresSteps() async throws {
     let container = try ModelContainerFactory.make(inMemory: true)
     let store = SwiftDataTrackingStore(container: container)

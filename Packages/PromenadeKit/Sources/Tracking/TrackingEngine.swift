@@ -315,7 +315,12 @@ public final class TrackingEngine {
   func finish(at date: Date) async throws {
     guard let liveSession else { return }
     let steps = try await closingSteps(until: date)
-    try await store.finish(sessionID: liveSession.id, at: date, steps: steps)
+    // A failed closing query already leaves the total unmeasured, so asking again would only delay
+    // the finish.
+    let closingFailed = liveSession.record.hasOpenSegment && steps == nil
+    let recovered = closingFailed ? [:] : try await recoveredSteps(of: liveSession.record)
+    try await store.finish(
+      sessionID: liveSession.id, at: date, steps: steps, recoveredSteps: recovered)
     lastFinishedSessionID = liveSession.id
     self.liveSession = nil
     pendingTransition = nil

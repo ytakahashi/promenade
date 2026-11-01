@@ -16,6 +16,19 @@ extension TrackingEngine {
     return try await steps(from: segment.startDate, to: date)
   }
 
+  /// Queries closed segments whose steps could not be measured when they closed, by segment index.
+  ///
+  /// One unmeasured segment leaves the session total unmeasured, so it stops at the first failure:
+  /// further queries could not change the total, and each could delay the finish by a timeout.
+  func recoveredSteps(of record: SessionRecord) async throws -> [Int: Int] {
+    var recovered: [Int: Int] = [:]
+    for segment in record.unmeasuredSegments {
+      guard let steps = try await steps(from: segment.start, to: segment.end) else { break }
+      recovered[segment.index] = steps
+    }
+    return recovered
+  }
+
   /// Bounded by `configuration.stepQueryTimeout`; a slow or failed query saves unmeasured steps
   /// instead of delaying the transition.
   ///

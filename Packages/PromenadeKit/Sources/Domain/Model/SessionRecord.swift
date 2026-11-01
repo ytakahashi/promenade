@@ -34,6 +34,17 @@ public struct SessionRecord: Sendable, Equatable {
     return last.endDate == nil
   }
 
+  /// Closed segments without measured steps, with the interval their steps cover: a signal gap
+  /// counts as walking, so such a segment's steps run up to the next segment's start.
+  public var unmeasuredSegments: [(index: Int, start: Date, end: Date)] {
+    segments.enumerated().compactMap { position, segment in
+      guard segment.steps == nil, let end = segment.endDate else { return nil }
+      let next = segments.indices.contains(position + 1) ? segments[position + 1] : nil
+      let stepsEnd = segment.endReason == .signalGap ? next?.startDate ?? end : end
+      return (segment.index, segment.startDate, stepsEnd)
+    }
+  }
+
   /// The latest moment the session is known to have been active.
   ///
   /// Used to decide how to recover an unfinished session after the app was terminated.

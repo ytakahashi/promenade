@@ -86,7 +86,7 @@ final class StatisticsFlowUITests: XCTestCase {
   private var hasSelection: NSPredicate { NSPredicate(format: "value != nil AND value != ''") }
   private var hasNoSelection: NSPredicate { NSPredicate(format: "value == nil OR value == ''") }
 
-  /// The accessibility value can lag behind a tap when the simulator is under load.
+  /// The accessibility value is not guaranteed to be updated as soon as a tap returns.
   @MainActor
   private func waitForValue(
     of element: XCUIElement, matching predicate: NSPredicate, file: StaticString = #filePath,

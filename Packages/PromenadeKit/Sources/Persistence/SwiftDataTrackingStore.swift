@@ -139,7 +139,9 @@ public actor SwiftDataTrackingStore: TrackingStore, SessionDeleting, DerivedData
     try commitTransition()
   }
 
-  public func finish(sessionID: UUID, at date: Date, steps: Int?) throws {
+  public func finish(
+    sessionID: UUID, at date: Date, steps: Int?, recoveredSteps: [Int: Int]
+  ) throws {
     try prepare()
     let (session, current) = try locate(sessionID)
     guard session.stateRaw != SessionState.finished.rawValue else {
@@ -150,6 +152,10 @@ public actor SwiftDataTrackingStore: TrackingStore, SessionDeleting, DerivedData
     var record = try session.record()
     record.endDate = date
     record.state = .finished
+    for index in record.segments.indices
+    where record.segments[index].endDate != nil && record.segments[index].steps == nil {
+      record.segments[index].steps = recoveredSteps[record.segments[index].index]
+    }
     if current.openSegmentID != nil, !record.segments.isEmpty {
       // The open segment is the last one; its steps must count toward the session total.
       record.segments[record.segments.count - 1].steps = steps
@@ -161,6 +167,10 @@ public actor SwiftDataTrackingStore: TrackingStore, SessionDeleting, DerivedData
         throw PersistenceError.invalidStructure
       }
       close(segment, at: date, reason: .finished, steps: steps)
+    }
+    for segment in session.segments
+    where segment.persistentModelID != current.openSegmentID && segment.steps == nil {
+      segment.steps = recoveredSteps[segment.index]
     }
     session.endDate = date
     session.stateRaw = SessionState.finished.rawValue

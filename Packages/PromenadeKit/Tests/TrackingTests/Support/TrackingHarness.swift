@@ -240,9 +240,12 @@ actor ControlledStore: TrackingStore {
     try await before(.open)
     try await base.openSegment(sessionID: sessionID, at: date)
   }
-  func finish(sessionID: UUID, at date: Date, steps: Int?) async throws {
+  func finish(
+    sessionID: UUID, at date: Date, steps: Int?, recoveredSteps: [Int: Int]
+  ) async throws {
     try await before(.finish)
-    try await base.finish(sessionID: sessionID, at: date, steps: steps)
+    try await base.finish(
+      sessionID: sessionID, at: date, steps: steps, recoveredSteps: recoveredSteps)
   }
   func discard(sessionID: UUID) async throws {
     try await before(.discard)

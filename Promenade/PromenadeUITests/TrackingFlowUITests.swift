@@ -203,7 +203,8 @@ final class TrackingFlowUITests: XCTestCase {
   @MainActor
   private func assertSummary(_ app: XCUIApplication) {
     XCTAssertTrue(app.navigationBars["Walk Summary"].waitForExistence(timeout: 10))
-    XCTAssertTrue(app.staticTexts["Distance"].firstMatch.exists)
+    // The walk is read asynchronously, so its contents can appear after the navigation bar.
+    XCTAssertTrue(app.staticTexts["Distance"].firstMatch.waitForExistence(timeout: 5))
   }
 
   /// A straight walk at about 1.4 m/s with one point per second.

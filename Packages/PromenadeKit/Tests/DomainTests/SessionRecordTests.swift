@@ -14,6 +14,21 @@ struct SessionRecordTests {
     )
   }
 
+  @Test func unmeasuredSegmentsAreClosedOnesWithoutStepsCoveringSignalGaps() {
+    let at = { (seconds: TimeInterval) in Date.reference.addingTimeInterval(seconds) }
+    let record = session(segments: [
+      SegmentRecord(index: 0, startDate: at(0), endDate: at(10), endReason: .signalGap),
+      SegmentRecord(index: 1, startDate: at(100), endDate: at(110), endReason: .paused),
+      SegmentRecord(index: 2, startDate: at(200), endDate: at(210), endReason: .paused, steps: 5),
+      SegmentRecord(index: 3, startDate: at(300)),
+    ])
+    let unmeasured = record.unmeasuredSegments
+    #expect(unmeasured.map(\.index) == [0, 1])
+    #expect(unmeasured.map(\.start) == [at(0), at(100)])
+    // The signal gap's steps run up to the next segment; a pause ends at the segment's end.
+    #expect(unmeasured.map(\.end) == [at(100), at(110)])
+  }
+
   @Test func lastActivityWithoutSegmentsIsStartDate() {
     #expect(session(segments: []).lastActivityDate == .reference)
   }
