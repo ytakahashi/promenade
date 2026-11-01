@@ -26,7 +26,7 @@ struct StepTrackingTests {
       SessionMetricsCalculator.metrics(for: saved, filter: .init(), asOf: date(40)).steps == 25)
   }
 
-  @Test func signalGapAndAccessLossQueryUpToTheLastActivity() async throws {
+  @Test func signalGapStepsIncludeTheGapAndAccessLossStepsEndAtTheLastActivity() async throws {
     let h = try TrackingHarness()
     h.pedometer.countSeconds()
     await h.engine.start()
@@ -36,9 +36,14 @@ struct StepTrackingTests {
     await h.engine.receive(.accessLost(.denied))
     let saved = try await h.record()
     #expect(saved.segments.map(\.endReason) == [.signalGap, .interrupted])
-    #expect(saved.segments.map(\.steps) == [1, 10])
-    #expect(h.pedometer.queries == [date(0)...date(1), date(100)...date(110)])
-    #expect(h.engine.liveSession?.record.segments.map(\.steps) == [1, 10])
+    // The closed segment still ends at its last point; only its step count covers the gap.
+    #expect(saved.segments.map(\.endDate) == [date(1), date(110)])
+    #expect(saved.segments.map(\.steps) == [100, 10])
+    #expect(h.pedometer.queries == [date(0)...date(100), date(100)...date(110)])
+    #expect(h.engine.liveSession?.record.segments.map(\.steps) == [100, 10])
+    #expect(h.engine.liveSession?.steps == 110)
+    #expect(
+      SessionMetricsCalculator.metrics(for: saved, filter: .init(), asOf: date(110)).steps == 110)
   }
 
   @Test func slowQuerySavesUnmeasuredStepsWithoutBlockingTheTransition() async throws {

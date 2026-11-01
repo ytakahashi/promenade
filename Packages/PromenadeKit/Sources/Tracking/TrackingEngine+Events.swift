@@ -106,7 +106,9 @@ extension TrackingEngine {
           wasStationary: wasStationary)
         {
           let closing = liveSession.lastActivity
-          let steps = try await closingSteps(until: closing)
+          // The gap counts as walking time, so its steps belong to the walk as well. The next
+          // segment starts at this point, so counting up to it neither loses nor repeats steps.
+          let steps = try await closingSteps(until: point.timestamp)
           try await store.splitSegment(
             sessionID: liveSession.id, closingAt: closing, reason: .signalGap, steps: steps,
             nextStart: point.timestamp)
