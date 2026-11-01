@@ -30,8 +30,8 @@ struct AppDependencies {
       canContinue: { engine.phase == .idle && !engine.isBusy })
   }
 
-  func readSession(id: UUID) throws -> SessionRecord? {
-    try Self.reader(container: container).session(id: id)
+  func readSession(id: UUID) async throws -> SessionRecord? {
+    try await SessionRecordLoader(container: container).session(id: id)
   }
 
   func motionAccess() -> MotionAccessState {

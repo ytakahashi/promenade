@@ -4,7 +4,7 @@ import SwiftUI
 struct StatisticsScreen: View {
   let model: StatisticsModel
   let route: RouteFilter.Configuration
-  let readSession: @MainActor (UUID) throws -> SessionRecord?
+  let readSession: @MainActor (UUID) async throws -> SessionRecord?
 
   var body: some View {
     NavigationStack {

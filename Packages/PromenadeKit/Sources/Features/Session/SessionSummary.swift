@@ -2,7 +2,7 @@ import Domain
 import Foundation
 
 /// A finished walk as shown after Finish, built from the saved record rather than live state.
-struct SessionSummary {
+nonisolated struct SessionSummary: Sendable {
   let id: UUID
   let map: TrackingMapContent
   /// Where the drawn route starts and ends; `nil` when no point passed the route filter.

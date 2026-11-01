@@ -69,15 +69,77 @@ struct SessionSummaryTests {
 
   // MARK: Model
 
-  @Test func modelLoadsTheSavedWalk() {
+  @Test func modelLoadsTheSavedWalk() async {
     let record = finished(segments: [])
     let model = SessionSummaryModel(sessionID: record.id, route: .default, read: { _ in record })
     #expect(model.isLoading)
-    model.load()
+    await model.load()
     #expect(model.loadedID == record.id)
   }
 
-  @Test func modelReportsEachFailureAndRetriesTheSameWalk() {
+  @Test func modelKeepsTheLoadedWalkDuringAReadAndThenReportsItDeleted() async {
+    let record = finished(segments: [])
+    let reads = HeldReads()
+    let model = SessionSummaryModel(sessionID: record.id, route: .default, read: reads.read)
+    let first = Task { await model.load() }
+    await reads.waitForRead(count: 1)
+    #expect(model.isLoading)
+    reads.release(0, returning: record)
+    await first.value
+    #expect(model.loadedID == record.id)
+
+    let second = Task { await model.load() }
+    await reads.waitForRead(count: 2)
+    #expect(model.loadedID == record.id)
+    reads.release(1, returning: nil)
+    await second.value
+    #expect(model.failure == .missing)
+  }
+
+  @Test func modelShowsProgressWhenRetryingAFailure() async {
+    let reads = HeldReads()
+    let model = SessionSummaryModel(sessionID: UUID(), route: .default, read: reads.read)
+    let first = Task { await model.load() }
+    await reads.waitForRead(count: 1)
+    reads.release(0, returning: nil)
+    await first.value
+    #expect(model.failure == .missing)
+
+    let retry = Task { await model.load() }
+    await reads.waitForRead(count: 2)
+    #expect(model.isLoading)
+    reads.release(1, returning: nil)
+    await retry.value
+  }
+
+  @Test func modelIgnoresASlowerEarlierRead() async {
+    let record = finished(segments: [])
+    let reads = HeldReads()
+    let model = SessionSummaryModel(sessionID: record.id, route: .default, read: reads.read)
+    let earlier = Task { await model.load() }
+    await reads.waitForRead(count: 1)
+    let later = Task { await model.load() }
+    await reads.waitForRead(count: 2)
+    reads.release(1, returning: record)
+    await later.value
+    reads.release(0, returning: nil)
+    await earlier.value
+    #expect(model.loadedID == record.id)
+  }
+
+  @Test func modelIgnoresACancelledRead() async {
+    let record = finished(segments: [])
+    let reads = HeldReads()
+    let model = SessionSummaryModel(sessionID: record.id, route: .default, read: reads.read)
+    let load = Task { await model.load() }
+    await reads.waitForRead(count: 1)
+    load.cancel()
+    reads.release(0, returning: record)
+    await load.value
+    #expect(model.isLoading)
+  }
+
+  @Test func modelReportsEachFailureAndRetriesTheSameWalk() async {
     let id = UUID()
     var reads: [UUID] = []
     var result: Result<SessionRecord?, any Error> = .success(nil)
@@ -87,16 +149,16 @@ struct SessionSummaryTests {
         reads.append($0)
         return try result.get()
       })
-    model.load()
+    await model.load()
     #expect(model.failure == .missing)
     result = .failure(CocoaError(.fileReadUnknown))
-    model.load()
+    await model.load()
     #expect(model.failure == .readFailed)
     var unfinished = finished(segments: [])
     unfinished.state = .paused
     unfinished.endDate = nil
     result = .success(unfinished)
-    model.load()
+    await model.load()
     #expect(model.failure == .unfinished)
     #expect(reads == [id, id, id])
   }
@@ -127,6 +189,25 @@ struct SessionSummaryTests {
         horizontalAccuracy: 5, altitude: 0, verticalAccuracy: -1, speed: -1, speedAccuracy: -1,
         course: -1)
     }
+  }
+}
+
+/// Holds each read until the test releases it, so tests control the order reads finish in.
+@MainActor
+private final class HeldReads {
+  private var waiting: [CheckedContinuation<SessionRecord?, Never>?] = []
+
+  func read(_ id: UUID) async -> SessionRecord? {
+    await withCheckedContinuation { waiting.append($0) }
+  }
+
+  func waitForRead(count: Int) async {
+    while waiting.count < count { await Task.yield() }
+  }
+
+  func release(_ index: Int, returning record: SessionRecord?) {
+    waiting[index]?.resume(returning: record)
+    waiting[index] = nil
   }
 }
 

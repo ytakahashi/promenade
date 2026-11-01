@@ -12,9 +12,7 @@ public struct SessionReader {
   }
 
   public func session(id: UUID) throws -> SessionRecord? {
-    var descriptor = FetchDescriptor<WalkingSession>(predicate: #Predicate { $0.id == id })
-    descriptor.fetchLimit = 1
-    return try context.fetch(descriptor).first?.record()
+    try context.sessionRecord(id: id)
   }
 
   public func unfinishedSession() throws -> SessionRecord? {

@@ -8,7 +8,7 @@ public struct RootView: View {
   let engine: TrackingEngine
   let configuration: TrackingConfiguration
   let locationAccess: LocationAccessState
-  let readSession: @MainActor (UUID) throws -> SessionRecord?
+  let readSession: @MainActor (UUID) async throws -> SessionRecord?
   /// Owned here rather than by the tab so presentation state outlives the tracking screen.
   @State private var trackingPresentation: TrackingPresentation
   /// Owned here so the loaded list and a pending deletion survive tab switches.
@@ -20,7 +20,7 @@ public struct RootView: View {
   public init(
     engine: TrackingEngine, configuration: TrackingConfiguration,
     locationAccess: LocationAccessState,
-    readSession: @escaping @MainActor (UUID) throws -> SessionRecord?,
+    readSession: @escaping @MainActor (UUID) async throws -> SessionRecord?,
     listSessions: @escaping @MainActor () throws -> [SessionListItem],
     deleter: any SessionDeleting,
     motionAccess: @escaping @MainActor () -> MotionAccessState,

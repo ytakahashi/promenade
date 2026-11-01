@@ -4,7 +4,7 @@ import SwiftUI
 struct HistoryScreen: View {
   let model: HistoryModel
   let route: RouteFilter.Configuration
-  let readSession: @MainActor (UUID) throws -> SessionRecord?
+  let readSession: @MainActor (UUID) async throws -> SessionRecord?
   let settings: SettingsModel
   let locationAccess: LocationAccessState
   @State private var showsSettings = false

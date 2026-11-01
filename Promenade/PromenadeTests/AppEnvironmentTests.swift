@@ -239,7 +239,7 @@ struct AppEnvironmentTests {
     let id = UUID()
     let start = Date()
     try await dependencies.store.createSession(id: id, startDate: start, timeZone: .current)
-    #expect(try read(id)?.state == .recording)
+    #expect(try await read(id)?.state == .recording)
     let points = (1...3).map { index in
       TrackPoint(
         timestamp: start.addingTimeInterval(Double(index) * 5),
@@ -254,13 +254,13 @@ struct AppEnvironmentTests {
     try await dependencies.store.finish(sessionID: id, at: end, steps: nil)
 
     // Finishing saves buffered points; a fresh read context must see them with the final state.
-    let finished = try #require(try read(id))
+    let finished = try #require(try await read(id))
     #expect(finished.state == .finished)
     #expect(finished.endDate == end)
     #expect(finished.segments.last?.points.last == points.last)
     let model = SessionSummaryModel(
       sessionID: id, route: environment.configuration.route, read: read)
-    model.load()
+    await model.load()
     guard case .loaded(let summary) = model.state else {
       Issue.record("Expected a loaded summary")
       return
@@ -268,7 +268,7 @@ struct AppEnvironmentTests {
     #expect(summary.metrics.timing.walking == 20)
     #expect(summary.metrics.distance > 10)
     #expect(summary.map.segments.first?.coordinates.count == 3)
-    #expect(try read(UUID()) == nil)
+    #expect(try await read(UUID()) == nil)
   }
 
   @Test(.timeLimit(.minutes(1)))
@@ -285,7 +285,7 @@ struct AppEnvironmentTests {
     let id = UUID()
     let start = Date().addingTimeInterval(-10)
     try await dependencies.store.createSession(id: id, startDate: start, timeZone: .current)
-    record = try dependencies.readSession(id: id)
+    record = try await dependencies.readSession(id: id)
     environment.beginRecovery(launch: .background)
     await session.waitUntilActivating()
     let point = TrackPoint(
@@ -293,11 +293,11 @@ struct AppEnvironmentTests {
       horizontalAccuracy: 5, altitude: 0, verticalAccuracy: -1,
       speed: -1, speedAccuracy: -1, course: -1)
     try await dependencies.store.append(point, sessionID: id)
-    #expect(try dependencies.readSession(id: id)?.segments.first?.points.isEmpty == true)
+    #expect(try await dependencies.readSession(id: id)?.segments.first?.points.isEmpty == true)
     environment.didBecomeActive()
     let flush = try #require(environment.didEnterBackground())
     await flush.value
-    #expect(try dependencies.readSession(id: id)?.segments.first?.points == [point])
+    #expect(try await dependencies.readSession(id: id)?.segments.first?.points == [point])
     #expect(environment.recoveryTask?.isCancelled == false)
     #expect(session.deactivations == 0)
     session.releaseActivation()

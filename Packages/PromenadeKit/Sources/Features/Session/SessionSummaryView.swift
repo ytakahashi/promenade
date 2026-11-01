@@ -7,7 +7,7 @@ struct SessionSummaryView: View {
 
   var body: some View {
     content
-      .onAppear { model.load() }
+      .task { await model.load() }
   }
 
   @ViewBuilder
@@ -28,7 +28,7 @@ struct SessionSummaryView: View {
         Text("The walk is saved. Retry to read it again.", bundle: .module)
       } actions: {
         Button {
-          model.load()
+          Task.immediate { await model.load() }
         } label: {
           Text("Retry", bundle: .module)
         }

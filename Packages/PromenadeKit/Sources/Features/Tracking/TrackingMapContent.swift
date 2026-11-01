@@ -2,8 +2,8 @@ import CoreLocation
 import Domain
 import Tracking
 
-struct TrackingMapContent {
-  struct Segment: Identifiable {
+nonisolated struct TrackingMapContent: Sendable {
+  struct Segment: Identifiable, Sendable {
     let id: Int
     let coordinates: [CLLocationCoordinate2D]
   }
@@ -28,7 +28,7 @@ struct TrackingMapContent {
 }
 
 /// The first and last accepted points of a saved route, marked on its map.
-struct RouteEndpoints: Equatable {
+nonisolated struct RouteEndpoints: Equatable, Sendable {
   let start: Coordinate
   /// `nil` when the route has a single accepted point, which is marked only as the start.
   let end: Coordinate?
@@ -42,7 +42,7 @@ struct RouteEndpoints: Equatable {
 }
 
 extension CLLocationCoordinate2D {
-  init(_ coordinate: Coordinate) {
+  nonisolated init(_ coordinate: Coordinate) {
     self.init(latitude: coordinate.latitude, longitude: coordinate.longitude)
   }
 }
