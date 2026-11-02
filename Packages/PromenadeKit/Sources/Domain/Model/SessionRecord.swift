@@ -38,11 +38,45 @@ public struct SessionRecord: Sendable, Equatable {
   /// counts as walking, so such a segment's steps run up to the next segment's start.
   public var unmeasuredSegments: [(index: Int, start: Date, end: Date)] {
     segments.enumerated().compactMap { position, segment in
-      guard segment.steps == nil, let end = segment.endDate else { return nil }
-      let next = segments.indices.contains(position + 1) ? segments[position + 1] : nil
-      let stepsEnd = segment.endReason == .signalGap ? next?.startDate ?? end : end
-      return (segment.index, segment.startDate, stepsEnd)
+      guard segment.steps == nil, let end = stepsEnd(ofSegmentAt: position) else { return nil }
+      return (segment.index, segment.startDate, end)
     }
+  }
+
+  /// The end of the interval a closed segment's steps cover, or `nil` for an open segment.
+  private func stepsEnd(ofSegmentAt position: Int) -> Date? {
+    let segment = segments[position]
+    guard let end = segment.endDate else { return nil }
+    let next = segments.indices.contains(position + 1) ? segments[position + 1] : nil
+    return segment.endReason == .signalGap ? next?.startDate ?? end : end
+  }
+
+  /// The finished session as if it ended at `date`, or `nil` when it cannot end there: it is
+  /// unfinished, or `date` is not between the first point and the end of a segment that has points.
+  ///
+  /// Dates in a gap are rejected because closing a segment there would turn the gap into walking
+  /// time. Every recorded point's time is valid, since a segment never ends before its last point.
+  public func trimmed(endingAt date: Date) -> SessionRecord? {
+    guard state == .finished, let sessionEnd = endDate, date <= sessionEnd,
+      let position = segments.lastIndex(where: { segment in
+        segment.points.first.map { $0.timestamp <= date } ?? false
+      }),
+      let stepsEnd = stepsEnd(ofSegmentAt: position),
+      let segmentEnd = segments[position].endDate, date <= segmentEnd
+    else { return nil }
+
+    var result = self
+    result.endDate = date
+    result.segments.removeSubrange((position + 1)...)
+    result.segments[position].points.removeAll { $0.timestamp > date }
+    result.segments[position].endDate = date
+    result.segments[position].endReason = .finished
+    // Saved steps that run past the new end cannot be split. A signal gap's steps run up to the
+    // next segment, so they run past its end even when the segment itself is not shortened.
+    if stepsEnd > date {
+      result.segments[position].steps = nil
+    }
+    return result
   }
 
   /// The latest moment the session is known to have been active.
