@@ -4,7 +4,7 @@ SOURCES := Promenade Packages
 # Extra xcodebuild test arguments, e.g. a result bundle path in CI.
 XCODEBUILD_ARGS ?=
 
-.PHONY: build build-release test test-app test-ui format lint
+.PHONY: build build-release boot-simulator test test-app test-ui format lint
 
 build:
 	xcodebuild build -project Promenade/Promenade.xcodeproj -scheme Promenade -destination '$(DESTINATION)' -quiet
@@ -18,6 +18,14 @@ build-release:
 		echo "Release build contains Debug-only launch options" >&2; exit 1; \
 	fi; \
 	echo "Release build has no Debug-only launch options: $$app"
+
+# Boots the simulator tests use. A name can match several OS versions on CI images: runtimes are
+# listed oldest first, and xcodebuild picks the newest for a name-only destination.
+boot-simulator:
+	@udid="$$(xcrun simctl list devices available | grep -E '^ +$(SIMULATOR) \(' | tail -1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"; \
+	if [ -z "$$udid" ]; then echo "Simulator not found: $(SIMULATOR)" >&2; exit 1; fi; \
+	echo "Booting $(SIMULATOR): $$udid"; \
+	xcrun simctl bootstatus "$$udid" -b
 
 # The package targets iOS only, so tests run on a simulator via xcodebuild instead of `swift test`.
 test:

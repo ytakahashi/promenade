@@ -18,8 +18,8 @@ env:
   # Keep in sync with the Xcode used for development; the image's default can change at any time.
   DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
 
-# The test jobs turn off parallel testing, which clones the simulator: on a hosted runner most of
-# the job time passes before the first test starts. UI tests keep it because they run far longer.
+# The test jobs try turning off parallel testing, which clones the simulator, because most of their
+# time passes before the first test starts. UI tests keep it because they run far longer.
 jobs:
   lint-and-build:
     if: github.event_name != 'workflow_dispatch'
@@ -38,6 +38,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
+      - name: Boot simulator
+        run: make boot-simulator
       - name: Package tests
         run: >-
           make test
@@ -58,6 +60,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
+      - name: Boot simulator
+        run: make boot-simulator
       - name: App-hosted tests
         run: >-
           make test-app
