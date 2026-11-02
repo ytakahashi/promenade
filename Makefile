@@ -1,6 +1,8 @@
 SIMULATOR ?= iPhone 17
 DESTINATION := platform=iOS Simulator,name=$(SIMULATOR)
 SOURCES := Promenade Packages
+# Extra xcodebuild test arguments, e.g. a result bundle path in CI.
+XCODEBUILD_ARGS ?=
 
 .PHONY: build build-release test test-app test-ui format lint
 
@@ -19,14 +21,14 @@ build-release:
 
 # The package targets iOS only, so tests run on a simulator via xcodebuild instead of `swift test`.
 test:
-	cd Packages/PromenadeKit && xcodebuild test -scheme PromenadeKit -destination '$(DESTINATION)' -quiet
+	cd Packages/PromenadeKit && xcodebuild test -scheme PromenadeKit -destination '$(DESTINATION)' -quiet $(XCODEBUILD_ARGS)
 
 # App-hosted unit tests and UI tests are intentionally separate from package tests.
 test-app:
-	xcodebuild test -project Promenade/Promenade.xcodeproj -scheme Promenade -destination '$(DESTINATION)' -only-testing:PromenadeTests -quiet
+	xcodebuild test -project Promenade/Promenade.xcodeproj -scheme Promenade -destination '$(DESTINATION)' -only-testing:PromenadeTests -quiet $(XCODEBUILD_ARGS)
 
 test-ui:
-	xcodebuild test -project Promenade/Promenade.xcodeproj -scheme Promenade -destination '$(DESTINATION)' -only-testing:PromenadeUITests -quiet
+	xcodebuild test -project Promenade/Promenade.xcodeproj -scheme Promenade -destination '$(DESTINATION)' -only-testing:PromenadeUITests -quiet $(XCODEBUILD_ARGS)
 
 format:
 	swift format --in-place --recursive $(SOURCES)
