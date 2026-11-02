@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # UI tests are slow, so they run only on request.
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Keep in sync with the Xcode used for development; the image's default can change at any time.
+  DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+
+# The test jobs boot the simulator first and turn off parallel testing, so they run on that simulator
+# instead of cloning it. UI tests keep parallel testing because they run far longer.
+jobs:
+  lint-and-build:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Lint
+        run: make lint
+      - name: Release build
+        run: make build-release
+
+  package-tests:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Boot simulator
+        run: make boot-simulator
+      - name: Package tests
+        run: >-
+          make test
+          XCODEBUILD_ARGS="-parallel-testing-enabled NO
+          -resultBundlePath $RUNNER_TEMP/results/package.xcresult"
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: package-test-results
+          path: ${{ runner.temp }}/results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  app-tests:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Boot simulator
+        run: make boot-simulator
+      - name: App-hosted tests
+        run: >-
+          make test-app
+          XCODEBUILD_ARGS="-parallel-testing-enabled NO
+          -resultBundlePath $RUNNER_TEMP/results/app.xcresult"
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: app-test-results
+          path: ${{ runner.temp }}/results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  ui-tests:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: UI tests
+        run: make test-ui XCODEBUILD_ARGS="-resultBundlePath $RUNNER_TEMP/results/ui.xcresult"
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: ui-test-results
+          path: ${{ runner.temp }}/results
+          if-no-files-found: ignore
+          retention-days: 7
