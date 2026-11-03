@@ -190,6 +190,16 @@
         }
       }
     },
+    "A finished walk with recorded locations is required." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A finished walk with recorded locations is required."
+          }
+        }
+      }
+    },
     "All Time" : {
       "localizations" : {
         "en" : {
@@ -256,6 +266,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "Checking Steps…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking Steps…"
+          }
+        }
+      }
+    },
+    "Choose where your walk ended. The route after this point will be removed." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose where your walk ended. The route after this point will be removed."
           }
         }
       }
@@ -373,6 +403,16 @@
         }
       }
     },
+    "Finish time" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finish time"
+          }
+        }
+      }
+    },
     "Finish Walk?" : {
       "localizations" : {
         "en" : {
@@ -459,6 +499,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "It had no activity for a long time, so it was saved as of its last activity."
+          }
+        }
+      }
+    },
+    "Keep" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep"
           }
         }
       }
@@ -609,6 +659,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Motion & Fitness"
+          }
+        }
+      }
+    },
+    "New Finish" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Finish"
           }
         }
       }
@@ -873,6 +933,16 @@
         }
       }
     },
+    "Remove" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove"
+          }
+        }
+      }
+    },
     "Rest time" : {
       "localizations" : {
         "en" : {
@@ -963,6 +1033,16 @@
         }
       }
     },
+    "Saving Changes…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saving Changes…"
+          }
+        }
+      }
+    },
     "Searching for GPS Signal" : {
       "localizations" : {
         "en" : {
@@ -1036,6 +1116,26 @@
         }
       }
     },
+    "The route after %@ will be deleted. This can't be undone." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The route after %@ will be deleted. This can't be undone."
+          }
+        }
+      }
+    },
+    "The route after %@ will be deleted. This can't be undone. Steps will be unavailable." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The route after %@ will be deleted. This can't be undone. Steps will be unavailable."
+          }
+        }
+      }
+    },
     "The walk and its route are deleted permanently." : {
       "localizations" : {
         "en" : {
@@ -1052,6 +1152,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The walk could not be saved."
+          }
+        }
+      }
+    },
+    "The walk hasn't changed. Try saving again." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The walk hasn't changed. Try saving again."
           }
         }
       }
@@ -1102,6 +1212,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tracking"
+          }
+        }
+      }
+    },
+    "Trim" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trim"
+          }
+        }
+      }
+    },
+    "Trim Walk" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trim Walk"
+          }
+        }
+      }
+    },
+    "Trim Walk?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trim Walk?"
           }
         }
       }
@@ -1216,6 +1356,16 @@
         }
       }
     },
+    "Unable to Save Changes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to Save Changes"
+          }
+        }
+      }
+    },
     "Unable to Set Up Location" : {
       "localizations" : {
         "en" : {
@@ -1232,6 +1382,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Unable to Start Walk"
+          }
+        }
+      }
+    },
+    "Unable to Trim Walk" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to Trim Walk"
           }
         }
       }
