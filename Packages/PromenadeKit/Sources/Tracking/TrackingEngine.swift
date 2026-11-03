@@ -24,6 +24,7 @@ public final class TrackingEngine {
   @ObservationIgnored let provider: any LocationProvider
   @ObservationIgnored let locationSession: any LocationSession
   @ObservationIgnored let pedometer: any PedometerProvider
+  @ObservationIgnored let stepQuery: StepQuery
   @ObservationIgnored let dates: any DateProvider
   @ObservationIgnored let configuration: TrackingConfiguration
   @ObservationIgnored let timeZone: @MainActor () -> TimeZone
@@ -56,6 +57,8 @@ public final class TrackingEngine {
     self.provider = provider
     self.locationSession = locationSession
     self.pedometer = pedometer
+    self.stepQuery = StepQuery(
+      pedometer: pedometer, timeout: configuration.stepQueryTimeout, sleep: sleep)
     self.dates = dates
     self.configuration = configuration
     self.timeZone = timeZone

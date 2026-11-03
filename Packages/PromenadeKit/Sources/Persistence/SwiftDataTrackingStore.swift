@@ -4,7 +4,8 @@ import SwiftData
 
 // Conforms to `ModelActor` manually instead of using `@ModelActor`: the macro adds a public
 // `init(modelContainer:)` that would bypass the context setup below.
-public actor SwiftDataTrackingStore: TrackingStore, SessionDeleting, DerivedDataRecomputing,
+public actor SwiftDataTrackingStore: TrackingStore, SessionDeleting, SessionTrimming,
+  DerivedDataRecomputing,
   ModelActor
 {
   public nonisolated let modelContainer: ModelContainer
@@ -176,6 +177,43 @@ public actor SwiftDataTrackingStore: TrackingStore, SessionDeleting, DerivedData
     session.stateRaw = SessionState.finished.rawValue
     apply(metrics, to: session)
     cursor = nil
+    try commitTransition()
+  }
+
+  public func trimEnd(sessionID: UUID, at date: Date, steps: Int?) throws {
+    try prepare()
+    guard let session = try fetchSession(id: sessionID) else {
+      throw PersistenceError.sessionNotFound(sessionID)
+    }
+    guard session.stateRaw == SessionState.finished.rawValue else {
+      throw PersistenceError.sessionNotFinished
+    }
+    guard var record = try session.record().trimmed(endingAt: date),
+      let last = record.segments.last
+    else { throw PersistenceError.invalidDate }
+    let segments = session.segments.sorted { $0.index < $1.index }
+    guard Set(segments.map(\.index)).count == segments.count,
+      let lastPosition = segments.firstIndex(where: { $0.index == last.index })
+    else { throw PersistenceError.invalidStructure }
+    // Trimming preserves measurements that still cover exactly the retained interval.
+    // A caller's fallback must never erase or replace those measurements.
+    let measured = last.steps ?? steps
+    record.segments[record.segments.count - 1].steps = measured
+    let metrics = SessionMetricsCalculator.metrics(
+      for: record, filter: RouteFilter(configuration: configuration.route), asOf: date)
+    let remaining = segments[lastPosition]
+    let removedPoints = remaining.points.filter { $0.timestamp > date }
+    // Finish all fallible validation before deleting managed objects. Use the retained segment,
+    // rather than point dates, to preserve earlier empty segments and their timing semantics.
+    for segment in segments.dropFirst(lastPosition + 1) { modelContext.delete(segment) }
+    for point in removedPoints { modelContext.delete(point) }
+    close(remaining, at: date, reason: .finished, steps: measured)
+    session.endDate = date
+    apply(metrics, to: session)
+    cursor = nil
+    // Register child edits and deletions before saving so rollback also restores the retained
+    // segment's values in this context, not only the durable data and relationships.
+    modelContext.processPendingChanges()
     try commitTransition()
   }
 
