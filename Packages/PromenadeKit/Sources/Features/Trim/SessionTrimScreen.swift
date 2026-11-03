@@ -150,6 +150,10 @@ struct SessionTrimScreen: View {
         .font(.caption)
       }
       Section {
+        if let data = model.data {
+          WalkSpeedChart(
+            content: data.speedChart, timeZone: model.timeZone, selectedDate: model.selectedDate)
+        }
         Slider(
           value: Binding(
             get: { model.selectedOffset }, set: { model.select(offset: $0) }

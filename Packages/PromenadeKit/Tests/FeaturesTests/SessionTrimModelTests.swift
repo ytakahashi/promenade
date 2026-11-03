@@ -44,6 +44,48 @@ struct SessionTrimModelTests {
     }
   }
 
+  @Test func speedChartUsesTheOriginalRecordAndRemainsFixedAcrossSelectionChanges() async throws {
+    let record = TrimFixtures.record()
+    let model = makeModel(record)
+    await model.load()
+    let chart = try #require(model.data).speedChart
+    let expected = WalkSpeedSeries.samples(
+      for: record, filter: RouteFilter(), interval: WalkSpeedSeries.defaultInterval)
+    let expectedChart = WalkSpeedChartContent(
+      samples: expected, interval: WalkSpeedSeries.defaultInterval,
+      range: record.startDate...record.endDate!)
+    #expect(chart == expectedChart)
+    #expect(chart.range.lowerBound == record.startDate)
+    #expect(chart.range.upperBound == record.endDate)
+    for offset in [0.0, 10, 40, 50] {
+      model.select(offset: offset)
+      await model.refreshMap()
+      #expect(model.data?.speedChart == chart)
+    }
+    await model.load()
+    #expect(model.data?.speedChart == chart)
+  }
+
+  @Test func instantaneousRecordKeepsChartAndSliderDomainsAligned() async throws {
+    var record = TrimFixtures.record()
+    record.endDate = record.startDate
+    record.segments = [
+      .init(
+        index: 0, startDate: record.startDate, endDate: record.startDate,
+        endReason: .finished, steps: 0, points: [TrimFixtures.point(0)])
+    ]
+    let model = makeModel(record)
+    await model.load()
+    #expect(model.phase == .editing)
+    let chart = try #require(model.data).speedChart
+    #expect(chart.runs.isEmpty)
+    #expect(chart.range.lowerBound == record.startDate)
+    #expect(
+      chart.range.upperBound.timeIntervalSince(record.startDate) == model.sliderRange.upperBound)
+    #expect(model.selectedDate == record.startDate)
+    #expect(!model.canSave)
+  }
+
   @Test func retainedStepsSkipQueryAndUseNilFallback() async throws {
     let store = TrimTestStore()
     var queries = 0
