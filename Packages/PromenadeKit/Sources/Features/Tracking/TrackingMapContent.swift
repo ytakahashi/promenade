@@ -10,6 +10,10 @@ nonisolated struct TrackingMapContent: Sendable {
 
   let segments: [Segment]
 
+  init(segments: [Segment]) {
+    self.segments = segments
+  }
+
   init(route: LiveRoute?) {
     self.init(segments: route?.segments ?? [])
   }
