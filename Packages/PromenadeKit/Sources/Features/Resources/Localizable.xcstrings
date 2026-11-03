@@ -1076,6 +1076,16 @@
         }
       }
     },
+    "Speed unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speed unavailable"
+          }
+        }
+      }
+    },
     "Start" : {
       "localizations" : {
         "en" : {
@@ -1465,6 +1475,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Walk Summary"
+          }
+        }
+      }
+    },
+    "Walking speed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Walking speed"
           }
         }
       }
