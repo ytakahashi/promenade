@@ -9,6 +9,7 @@ import Tracking
 struct AppDependencies {
   let container: ModelContainer
   let store: SwiftDataTrackingStore
+  let stepQuery: StepQuery
   let engine: TrackingEngine
   let refresher: DerivedDataRefresher
   let pedometer: any PedometerProvider
@@ -20,6 +21,7 @@ struct AppDependencies {
     self.container = container
     store = SwiftDataTrackingStore(container: container, configuration: configuration)
     pedometer = sensors.pedometer
+    stepQuery = StepQuery(pedometer: sensors.pedometer, timeout: configuration.stepQueryTimeout)
     engine = TrackingEngine(
       store: store, provider: sensors.provider, locationSession: sensors.session,
       pedometer: sensors.pedometer, configuration: configuration)

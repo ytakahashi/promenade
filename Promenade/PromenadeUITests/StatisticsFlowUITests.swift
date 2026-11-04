@@ -77,7 +77,10 @@ final class StatisticsFlowUITests: XCTestCase {
     attachScreenshot(app, name: "Statistics day walks")
     row.tap()
     XCTAssertTrue(app.navigationBars["Walk"].waitForExistence(timeout: 5))
-    // Seed sessions have no route points, so only navigation is checked here.
+    XCTAssertTrue(
+      app.descendants(matching: .any)["summary.distance"].firstMatch.waitForExistence(timeout: 5))
+    // Seed sessions have no route points and must not offer trimming.
+    XCTAssertFalse(app.buttons["summary.trim"].exists)
     app.navigationBars.buttons.firstMatch.tap()
     XCTAssertTrue(app.navigationBars["Statistics"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.segmentedControls.element(boundBy: 0).buttons["Day"].isSelected)

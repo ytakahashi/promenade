@@ -20,6 +20,8 @@ struct SessionTrimScreen: View {
     content
       .navigationTitle(Text("Trim Walk", bundle: .module))
       .navigationBarTitleDisplayMode(.inline)
+      // A tab bar would cover the slider and the finish time when pushed from History or Statistics.
+      .toolbar(.hidden, for: .tabBar)
       .navigationBarBackButtonHidden(model.isSaving)
       .interactiveDismissDisabled(model.isSaving)
       .toolbar {
@@ -134,20 +136,9 @@ struct SessionTrimScreen: View {
             }
             .listRowInsets(EdgeInsets())
         }
-        HStack {
-          Label {
-            Text("Keep", bundle: .module)
-          } icon: {
-            Image(systemName: "line.diagonal").foregroundStyle(.blue)
-          }
-          Spacer()
-          Label {
-            Text("Remove", bundle: .module)
-          } icon: {
-            Image(systemName: "line.diagonal").foregroundStyle(.gray)
-          }
+        if let distance = model.distance, let timing = model.timing {
+          metrics(distance: distance, walking: timing.walking, formatting: formatting)
         }
-        .font(.caption)
       }
       Section {
         if let data = model.data {
@@ -179,22 +170,6 @@ struct SessionTrimScreen: View {
             Text("Finish time", bundle: .module)
           }
         }
-        if let distance = model.distance {
-          LabeledContent {
-            Text(verbatim: formatting.distance(distance))
-          } label: {
-            Text("Distance", bundle: .module)
-          }
-          .accessibilityIdentifier("trim.distance")
-        }
-        if let timing = model.timing {
-          LabeledContent {
-            Text(verbatim: formatting.duration(timing.walking))
-          } label: {
-            Text("Walking time", bundle: .module)
-          }
-          .accessibilityValue(formatting.durationAccessibility(timing.walking))
-        }
       } footer: {
         Text(
           "Choose where your walk ended. The route after this point will be removed.",
@@ -203,6 +178,43 @@ struct SessionTrimScreen: View {
     }
     .monospacedDigit()
     .disabled(model.phase != .editing)
+  }
+
+  /// Sits above the slider so the values stay in view, and uncovered by the finger, while dragging.
+  private func metrics(
+    distance: Double, walking: TimeInterval, formatting: MetricFormatting
+  ) -> some View {
+    let distanceMetric = metric(
+      Text("Distance", bundle: .module), value: formatting.distance(distance),
+      accessibilityValue: formatting.distance(distance)
+    )
+    .accessibilityIdentifier("trim.distance")
+    let walkingMetric = metric(
+      Text("Walking time", bundle: .module), value: formatting.duration(walking),
+      accessibilityValue: formatting.durationAccessibility(walking))
+    return ViewThatFits(in: .horizontal) {
+      HStack(alignment: .top, spacing: 16) {
+        distanceMetric.frame(maxWidth: .infinity, alignment: .leading)
+        walkingMetric.frame(maxWidth: .infinity, alignment: .leading)
+      }
+      VStack(alignment: .leading, spacing: 8) {
+        distanceMetric
+        walkingMetric
+      }
+    }
+  }
+
+  private func metric(_ title: Text, value: String, accessibilityValue: String) -> some View {
+    VStack(alignment: .leading, spacing: 2) {
+      title
+        .font(.caption)
+        .foregroundStyle(.secondary)
+      Text(verbatim: value)
+        .font(.headline)
+    }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(title)
+    .accessibilityValue(accessibilityValue)
   }
 }
 

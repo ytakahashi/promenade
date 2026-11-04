@@ -503,16 +503,6 @@
         }
       }
     },
-    "Keep" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Keep"
-          }
-        }
-      }
-    },
     "Location" : {
       "localizations" : {
         "en" : {
@@ -632,6 +622,9 @@
           }
         }
       }
+    },
+    "Measured interval" : {
+
     },
     "Metric" : {
       "localizations" : {
@@ -933,16 +926,6 @@
         }
       }
     },
-    "Remove" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remove"
-          }
-        }
-      }
-    },
     "Rest time" : {
       "localizations" : {
         "en" : {
@@ -1076,6 +1059,9 @@
         }
       }
     },
+    "Speed" : {
+
+    },
     "Speed unavailable" : {
       "localizations" : {
         "en" : {
@@ -1205,6 +1191,9 @@
           }
         }
       }
+    },
+    "Time" : {
+
     },
     "Total" : {
       "localizations" : {
