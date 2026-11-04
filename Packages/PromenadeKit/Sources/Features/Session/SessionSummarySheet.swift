@@ -9,15 +9,19 @@ struct SummaryItem: Identifiable, Equatable {
 struct SessionSummarySheet: View {
   @State private var model: SessionSummaryModel
   let close: () -> Void
+  let trim: SessionTrimDependencies?
 
-  init(model: SessionSummaryModel, close: @escaping () -> Void) {
+  init(
+    model: SessionSummaryModel, trim: SessionTrimDependencies? = nil, close: @escaping () -> Void
+  ) {
+    self.trim = trim
     _model = State(initialValue: model)
     self.close = close
   }
 
   var body: some View {
     NavigationStack {
-      SessionSummaryView(model: model)
+      SessionSummaryView(model: model, trim: trim)
         .navigationTitle(Text("Walk Summary", bundle: .module))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

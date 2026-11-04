@@ -13,12 +13,13 @@ final class SessionSummaryModel {
 
   enum State {
     case loading
-    case loaded(SessionSummary)
+    case loaded(SessionSummaryData)
     case failed(Failure)
   }
 
   let sessionID: UUID
   private(set) var state = State.loading
+  private(set) var isReading = false
   /// Identifies the latest load, so that a slower earlier read cannot overwrite its result.
   @ObservationIgnored private var latestLoad = 0
   @ObservationIgnored private let read: @MainActor (UUID) async throws -> SessionRecord?
@@ -35,6 +36,18 @@ final class SessionSummaryModel {
     self.read = read
   }
 
+  var canTrim: Bool {
+    guard !isReading, case .loaded(let data) = state else { return false }
+    return data.hasRecordedPoints
+  }
+
+  func makeTrimModel(using dependencies: SessionTrimDependencies) -> SessionTrimModel? {
+    guard canTrim, case .loaded(let data) = state else { return nil }
+    return SessionTrimModel(
+      record: data.record, route: route, trimmer: dependencies.trimmer,
+      querySteps: dependencies.querySteps)
+  }
+
   /// Reads the saved walk again. Retrying only reads; the walk is already finished and saved.
   ///
   /// A loaded walk stays on screen during the read, because this runs each time the view appears
@@ -43,6 +56,8 @@ final class SessionSummaryModel {
   func load() async {
     latestLoad += 1
     let load = latestLoad
+    isReading = true
+    defer { if load == latestLoad { isReading = false } }
     if case .loaded = state {} else { state = .loading }
     let result = await loadedState()
     // A cancelled load belongs to a view that has gone; its next appearance loads again.
@@ -66,7 +81,7 @@ final class SessionSummaryModel {
   @concurrent
   private nonisolated static func makeSummary(
     record: SessionRecord, route: RouteFilter.Configuration
-  ) async -> SessionSummary? {
-    SessionSummary(record: record, route: route)
+  ) async -> SessionSummaryData? {
+    SessionSummaryData(record: record, route: route)
   }
 }

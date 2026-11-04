@@ -24,6 +24,7 @@ struct AllTimeCard: View {
   @ViewBuilder
   private func metrics(_ formatting: MetricFormatting) -> some View {
     metric(Text("Distance", bundle: .module), value: formatting.distance(totals.distance))
+      .accessibilityIdentifier("statistics.allTime.distance")
     metric(Text("Steps", bundle: .module), value: formatting.steps(totals.steps))
     metric(
       Text("Walking Time", bundle: .module),

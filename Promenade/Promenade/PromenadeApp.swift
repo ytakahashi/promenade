@@ -1,5 +1,6 @@
 import Features
 import SwiftUI
+import Tracking
 
 @main
 struct PromenadeApp: App {
@@ -35,6 +36,8 @@ private struct AppContentView: View {
           engine: dependencies.engine, configuration: environment.configuration,
           locationAccess: environment.locationAccess, readSession: dependencies.readSession,
           listSessions: dependencies.listSessions, deleter: dependencies.store,
+          trimmer: dependencies.store,
+          querySteps: { try await dependencies.stepQuery.steps(from: $0, to: $1) },
           motionAccess: dependencies.motionAccess)
       }
     }

@@ -5,6 +5,8 @@ import SwiftUI
 import Tracking
 
 public struct RootView: View {
+  let trimmer: any SessionTrimming
+  let querySteps: @MainActor (Date, Date) async throws -> Int?
   let engine: TrackingEngine
   let configuration: TrackingConfiguration
   let locationAccess: LocationAccessState
@@ -22,10 +24,13 @@ public struct RootView: View {
     locationAccess: LocationAccessState,
     readSession: @escaping @MainActor (UUID) async throws -> SessionRecord?,
     listSessions: @escaping @MainActor () throws -> [SessionListItem],
-    deleter: any SessionDeleting,
+    deleter: any SessionDeleting, trimmer: any SessionTrimming,
+    querySteps: @escaping @MainActor (Date, Date) async throws -> Int?,
     motionAccess: @escaping @MainActor () -> MotionAccessState,
     infoDictionary: [String: Any]? = Bundle.main.infoDictionary
   ) {
+    self.trimmer = trimmer
+    self.querySteps = querySteps
     self.engine = engine
     self.configuration = configuration
     self.locationAccess = locationAccess
@@ -54,7 +59,8 @@ public struct RootView: View {
       .accessibilityValue(trackingAccessibilityValue)
       Tab {
         HistoryScreen(
-          model: historyModel, route: configuration.route, readSession: readSession,
+          trim: trimDependencies, model: historyModel, route: configuration.route,
+          readSession: readSession,
           settings: settingsModel, locationAccess: locationAccess)
       } label: {
         Label {
@@ -65,7 +71,8 @@ public struct RootView: View {
       }
       Tab {
         StatisticsScreen(
-          model: statisticsModel, route: configuration.route, readSession: readSession)
+          trim: trimDependencies, model: statisticsModel, route: configuration.route,
+          readSession: readSession)
       } label: {
         Label {
           Text("Statistics", bundle: .module)
@@ -110,7 +117,14 @@ public struct RootView: View {
       SessionSummarySheet(
         model: SessionSummaryModel(
           sessionID: item.id, route: configuration.route, read: readSession),
-        close: { trackingPresentation.dismissSummary() })
+        trim: trimDependencies, close: { trackingPresentation.dismissSummary() })
+    }
+  }
+
+  private var trimDependencies: SessionTrimDependencies {
+    SessionTrimDependencies(trimmer: trimmer, querySteps: querySteps) {
+      historyModel.load()
+      statisticsModel.load()
     }
   }
 

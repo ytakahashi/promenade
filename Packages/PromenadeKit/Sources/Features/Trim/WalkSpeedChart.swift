@@ -58,6 +58,9 @@ struct WalkSpeedChart: View {
     // VoiceOver still exposes the full times and values, and surrounding controls scale normally.
     .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     .frame(height: 180)
+    // Before the overlay: applied after it, this label would replace the overlay's text in VoiceOver.
+    .accessibilityLabel(Text("Walking speed", bundle: .module))
+    .accessibilityIdentifier("trim.speedChart")
     .overlay {
       if content.runs.isEmpty {
         Text("Speed unavailable", bundle: .module)
@@ -66,8 +69,6 @@ struct WalkSpeedChart: View {
           .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
       }
     }
-    .accessibilityLabel(Text("Walking speed", bundle: .module))
-    .accessibilityIdentifier("trim.speedChart")
   }
 
   private var axisDates: [Date] {

@@ -2,6 +2,7 @@ import Domain
 import SwiftUI
 
 struct HistoryScreen: View {
+  let trim: SessionTrimDependencies
   let model: HistoryModel
   let route: RouteFilter.Configuration
   let readSession: @MainActor (UUID) async throws -> SessionRecord?
@@ -29,7 +30,7 @@ struct HistoryScreen: View {
         }
         .navigationDestination(for: UUID.self) { id in
           SessionDetailScreen(
-            model: SessionSummaryModel(sessionID: id, route: route, read: readSession))
+            model: SessionSummaryModel(sessionID: id, route: route, read: readSession), trim: trim)
         }
     }
     .onAppear { model.load() }

@@ -163,6 +163,67 @@ struct SessionSummaryTests {
     #expect(reads == [id, id, id])
   }
 
+  @Test func loadedRecordAndSummaryAreKeptTogetherAndRejectedPointsCanStillBeEdited() async throws {
+    var record = TrimFixtures.record()
+    for segment in record.segments.indices {
+      for point in record.segments[segment].points.indices {
+        record.segments[segment].points[point].horizontalAccuracy = 100
+      }
+    }
+    let model = SessionSummaryModel(sessionID: record.id, route: .default, read: { _ in record })
+    #expect(!model.canTrim)
+    await model.load()
+    guard case .loaded(let data) = model.state else {
+      Issue.record("Expected loaded data")
+      return
+    }
+    #expect(data.record == record)
+    #expect(data.summary.endDate == record.endDate)
+    #expect(data.summary.endpoints == nil)
+    #expect(model.canTrim)
+    let dependencies = SessionTrimDependencies(
+      trimmer: TrimTestStore(), querySteps: { _, _ in nil }, saved: {})
+    let trim = try #require(model.makeTrimModel(using: dependencies))
+    await trim.load()
+    #expect(trim.selectedDate == record.segments.last?.points.last?.timestamp)
+  }
+
+  @Test func reloadingDisablesEditingAndReplacesItsSource() async throws {
+    let original = TrimFixtures.record()
+    let updated = try #require(original.trimmed(endingAt: TrimFixtures.date(10)))
+    let reads = HeldReads()
+    let model = SessionSummaryModel(sessionID: original.id, route: .default, read: reads.read)
+    let first = Task { await model.load() }
+    await reads.waitForRead(count: 1)
+    reads.release(0, returning: original)
+    await first.value
+    #expect(model.canTrim)
+    let reload = Task { await model.load() }
+    await reads.waitForRead(count: 2)
+    #expect(model.isReading)
+    #expect(!model.canTrim)
+    let dependencies = SessionTrimDependencies(
+      trimmer: TrimTestStore(), querySteps: { _, _ in nil }, saved: {})
+    #expect(model.makeTrimModel(using: dependencies) == nil)
+    reads.release(1, returning: updated)
+    await reload.value
+    #expect(!model.isReading)
+    #expect(model.canTrim)
+    let trim = try #require(model.makeTrimModel(using: dependencies))
+    await trim.load()
+    #expect(trim.selectedDate == TrimFixtures.date(10))
+  }
+
+  @Test func pointFreeRecordCannotOpenTrim() async {
+    let record = finished(segments: [])
+    let model = SessionSummaryModel(sessionID: record.id, route: .default, read: { _ in record })
+    await model.load()
+    #expect(!model.canTrim)
+    #expect(
+      model.makeTrimModel(
+        using: .init(trimmer: TrimTestStore(), querySteps: { _, _ in nil }, saved: {})) == nil)
+  }
+
   // MARK: Fixtures
 
   private func finished(segments: [SegmentRecord]) -> SessionRecord {
@@ -219,7 +280,7 @@ extension SessionSummaryModel {
   }
 
   fileprivate var loadedID: UUID? {
-    if case .loaded(let summary) = state { return summary.id }
+    if case .loaded(let data) = state { return data.summary.id }
     return nil
   }
 

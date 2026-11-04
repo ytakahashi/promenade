@@ -25,6 +25,7 @@ struct StatisticsSummaryCard: View {
         .font(.subheadline)
         .foregroundStyle(.secondary)
       Text(verbatim: formatting.value(metric.value(in: statistics.totals), metric: metric))
+        .accessibilityIdentifier("statistics.total")
         .font(.largeTitle.bold())
         .monospacedDigit()
       if statistics.period.granularity != .day {
