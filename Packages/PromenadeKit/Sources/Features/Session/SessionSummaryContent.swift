@@ -26,9 +26,12 @@ struct SessionSummaryContent: View {
       }
       Section {
         row("Distance", formatting.distance(metrics.distance))
+          .accessibilityIdentifier("summary.distance")
         row(
           "Steps", formatting.steps(metrics.steps),
-          accessibility: formatting.stepsAccessibility(metrics.steps))
+          accessibility: formatting.stepsAccessibility(metrics.steps)
+        )
+        .accessibilityIdentifier("summary.steps")
         row(
           "Walking time", formatting.duration(metrics.timing.walking),
           accessibility: formatting.durationAccessibility(metrics.timing.walking))

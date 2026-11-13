@@ -4,10 +4,40 @@ import SwiftUI
 /// navigation container and title.
 struct SessionSummaryView: View {
   let model: SessionSummaryModel
+  var trim: SessionTrimDependencies? = nil
+  @State private var trimModel: SessionTrimModel?
+  @State private var revision = 0
 
   var body: some View {
     content
-      .task { await model.load() }
+      .task(id: revision) { await model.load() }
+      .toolbar {
+        if let trim, case .loaded(let data) = model.state, data.hasRecordedPoints {
+          ToolbarItem(placement: .topBarTrailing) {
+            Button {
+              trimModel = model.makeTrimModel(using: trim)
+            } label: {
+              Text("Trim", bundle: .module)
+            }
+            .disabled(!model.canTrim)
+            .accessibilityIdentifier("summary.trim")
+          }
+        }
+      }
+      .navigationDestination(
+        isPresented: Binding(
+          get: { trimModel != nil }, set: { if !$0 { trimModel = nil } }
+        )
+      ) {
+        if let trimModel, let trim {
+          SessionTrimScreen(model: trimModel) {
+            // Returning from a push does not reliably re-run the stack's onAppear.
+            // Explicitly invalidate this summary and refresh both saved-walk collections.
+            revision += 1
+            trim.saved()
+          }
+        }
+      }
   }
 
   @ViewBuilder
@@ -15,8 +45,8 @@ struct SessionSummaryView: View {
     switch model.state {
     case .loading:
       ProgressView()
-    case .loaded(let summary):
-      SessionSummaryContent(summary: summary)
+    case .loaded(let data):
+      SessionSummaryContent(summary: data.summary)
     case .failed(let failure):
       ContentUnavailableView {
         Label {

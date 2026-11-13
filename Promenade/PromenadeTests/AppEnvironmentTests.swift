@@ -261,13 +261,13 @@ struct AppEnvironmentTests {
     let model = SessionSummaryModel(
       sessionID: id, route: environment.configuration.route, read: read)
     await model.load()
-    guard case .loaded(let summary) = model.state else {
+    guard case .loaded(let data) = model.state else {
       Issue.record("Expected a loaded summary")
       return
     }
-    #expect(summary.metrics.timing.walking == 20)
-    #expect(summary.metrics.distance > 10)
-    #expect(summary.map.segments.first?.coordinates.count == 3)
+    #expect(data.summary.metrics.timing.walking == 20)
+    #expect(data.summary.metrics.distance > 10)
+    #expect(data.summary.map.segments.first?.coordinates.count == 3)
     #expect(try await read(UUID()) == nil)
   }
 
